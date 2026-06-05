@@ -30,16 +30,14 @@ def extract_text(uploaded_file):
     return text
 
 def ask_gemini(api_key, prompt_text):
-    # Direct API request to completely bypass heavy library installations
     url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={api_key}"
     headers = {'Content-Type': 'application/json'}
     payload = {"contents": [{"parts": [{"text": prompt_text}]}]}
-    
     try:
         response = requests.post(url, headers=headers, json=payload)
         return response.json()['candidates'][0]['content']['parts'][0]['text']
     except Exception as e:
-        return f"Error connecting to API. Make sure your key is correct! Details: {e}"
+        return f"Error connecting to API. Details: {e}"
 
 uploaded_file = st.file_uploader("Drop your study document here (PDF, DOCX, PPTX)", type=["pdf", "docx", "pptx"])
 
