@@ -20,13 +20,12 @@ if "GEMINI_API_KEY_2" in st.secrets and st.secrets["GEMINI_API_KEY_2"]:
 if "GEMINI_API_KEY_3" in st.secrets and st.secrets["GEMINI_API_KEY_3"]:
     api_keys.append(st.secrets["GEMINI_API_KEY_3"])
 
-# Fallback to manual sidebar entry if the vault is completely empty
-if not api_keys:
-    manual_key = st.sidebar.text_input("Enter Gemini API Key", type="password")
-    if manual_key:
-        api_keys.append(manual_key)
+# Permanent fallback: ALWAYS show a sidebar input so the app never freezes up if secrets are blank
+manual_key = st.sidebar.text_input("Backup API Key Entry (Only needed if Secrets Vault is empty)", type="password")
+if manual_key:
+    api_keys.append(manual_key)
 
-# Pick a random key from the active pool for this request to share the traffic load!
+# Select an active key from your pool
 api_key = random.choice(api_keys) if api_keys else None
 
 def extract_text(uploaded_file):
@@ -65,12 +64,10 @@ def ask_gemini(api_key, prompt_text):
             response = requests.post(url, headers=headers, json=payload)
             response_json = response.json()
             
-            # Safe validation check to prevent the 'candidates' crash
             if 'candidates' in response_json and response_json['candidates']:
                 return response_json['candidates'][0]['content']['parts'][0]['text']
             elif 'error' in response_json:
                 error_msg = response_json['error']['message']
-                # If it's a high demand or quota issue, loop to the backup model
                 if "demand" in error_msg.lower() or "quota" in error_msg.lower():
                     continue
                 return f"Google API Error: {error_msg}"
@@ -81,53 +78,58 @@ def ask_gemini(api_key, prompt_text):
 
 uploaded_file = st.file_uploader("Drop your study document here (PDF, DOCX, PPTX)", type=["pdf", "docx", "pptx"])
 
+# Layout displays immediately when a file is dropped in
 if uploaded_file:
-    if not api_key:
-        st.warning("🔑 Please add your API key to the sidebar (or save it in Secrets) to unlock the system!")
-    else:
-        st.info("🔄 File detected and API key authenticated! Select a tool below to generate.")
-        
-        tab1, tab2, tab3 = st.tabs(["✨ ELI5 Summary", "🧠 Active Recall Quiz", "📋 Concept Map Table"])
-        
-        with st.spinner("Processing text..."):
-            raw_text = extract_text(uploaded_file)
-            truncated_text = raw_text[:9000] 
+    tab1, tab2, tab3 = st.tabs(["✨ ELI5 Summary", "🧠 Active Recall Quiz", "📋 Concept Map Table"])
+    
+    with st.spinner("Processing document text..."):
+        raw_text = extract_text(uploaded_file)
+        truncated_text = raw_text[:9000] 
 
-        with tab1:
-            st.subheader("Plain English Breakdown")
-            if st.button("🚀 Generate Summary Now"):
+    with tab1:
+        st.subheader("Plain English Breakdown")
+        if st.button("🚀 Generate Summary Now"):
+            if not api_key:
+                st.error("Missing API Key! Please save your key in the Streamlit Secrets Vault or paste it into the left sidebar box.")
+            else:
                 with st.spinner("Stripping out jargon..."):
                     prompt = f"Analyze this study material and give me a comprehensive 'Explain Like I'm 5' summary. Break down complex jargon into simple, memorable analogies:\n\n{truncated_text}"
                     st.markdown(ask_gemini(api_key, prompt))
 
-        with tab2:
-            st.subheader("Test Your Knowledge")
-            if st.button("🚀 Generate Active Recall Quiz"):
+    with tab2:
+        st.subheader("Test Your Knowledge")
+        if st.button("🚀 Generate Active Recall Quiz"):
+            if not api_key:
+                st.error("Missing API Key! Please save your key in the Streamlit Secrets Vault or paste it into the left sidebar box.")
+            else:
                 with st.spinner("Building interactive flashcard questions..."):
                     prompt = f"""
                     You are an expert professor. Analyze the uploaded document thoroughly. 
                     Your job is to build an interactive Active Recall study quiz by pulling distinct conceptual questions across different sections, chapters, or slides of the material.
                     
                     CRITICAL FORMATTING INSTRUCTIONS:
-                    For each question, format it EXACTLY like this using a standard Markdown text block. Do not use complex HTML. 
+                    For each question, format it EXACTLY like this using standard Markdown text blocks. Do not use complex HTML layouts:
                     
                     **Question X: [Insert clear, challenging question from the material]**
                     * 👉 **Answer:** || [Insert the precise, detailed answer here] ||
                     
-                    (Note: Placing the answer between '||' pipes creates a native spoiler tag on many platforms, or keeps it cleanly inline so students can hide it with their hands or scroll carefully). Make sure you extract 5-8 solid questions.
+                    Make sure you extract 5-8 solid questions distributed evenly across the chapters or slides.
                     
                     Study Text:
                     {truncated_text}
                     """
                     st.markdown(ask_gemini(api_key, prompt))
 
-        with tab3:
-            st.subheader("Key Acronyms, Definitions & Formulas")
-            if st.button("🚀 Generate Cheat Sheet Table"):
+    with tab3:
+        st.subheader("Key Acronyms, Definitions & Formulas")
+        if st.button("🚀 Generate Cheat Sheet Table"):
+            if not api_key:
+                st.error("Missing API Key! Please save your key in the Streamlit Secrets Vault or paste it into the left sidebar box.")
+            else:
                 with st.spinner("Extracting terms and formulas into a table..."):
                     prompt = f"""
                     Analyze the following study material and act as a professional summary engine.
-                    Extract every single critical term, network protocol, acronym, core definition, and formula into a clean cheat sheet.
+                    Extract every single critical term, network protocol, acronym, core definition, and formula into a clean, comprehensive summary grid.
                     
                     CRITICAL FORMATTING INSTRUCTIONS:
                     You MUST format your entire output as a valid Markdown table with exactly two columns. Do not include any conversational intro or outro text. Output ONLY the table.
@@ -135,7 +137,7 @@ if uploaded_file:
                     | Term / Concept / Acronym | High-Yield Summary & Core Meaning |
                     | :--- | :--- |
                     
-                    Extract at least 8-12 foundational elements from the text below to make a comprehensive summary grid:
+                    Extract at least 8-12 foundational elements from the text below:
                     
                     Study Text:
                     {truncated_text}
