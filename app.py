@@ -3,12 +3,11 @@ import PyPDF2
 from docx import Document
 from pptx import Presentation
 import requests
+import random
 
 st.set_page_config(page_title="Ultimate Study Dashboard", layout="centered")
 st.title("📚 Your Ultimate Exam Survival Dashboard")
 st.write("Upload a slide, doc, or PDF, then choose how you want to conquer it.")
-
-import random  # Put this at the very top line with your other imports
 
 # --- SMART API KEY ROTATION SETUP ---
 api_keys = []
@@ -54,7 +53,7 @@ def extract_text(uploaded_file):
     return text
 
 def ask_gemini(api_key, prompt_text):
-    # Try the main model first
+    # Try the main model first; fallback to 8b if the server is crowded
     models = ["gemini-2.5-flash", "gemini-2.5-flash-8b"]
     
     for model in models:
@@ -66,11 +65,12 @@ def ask_gemini(api_key, prompt_text):
             response = requests.post(url, headers=headers, json=payload)
             response_json = response.json()
             
+            # Safe validation check to prevent the 'candidates' crash
             if 'candidates' in response_json and response_json['candidates']:
                 return response_json['candidates'][0]['content']['parts'][0]['text']
             elif 'error' in response_json:
-                # If it's a high demand or quota issue, loop to the backup model
                 error_msg = response_json['error']['message']
+                # If it's a high demand or quota issue, loop to the backup model
                 if "demand" in error_msg.lower() or "quota" in error_msg.lower():
                     continue
                 return f"Google API Error: {error_msg}"
@@ -78,16 +78,6 @@ def ask_gemini(api_key, prompt_text):
             continue
             
     return "🚨 Both public AI server lines are packed right now. Tap the button again in 10 seconds to bypass the crowd!"
-        
-        # Safe checking to prevent the 'candidates' crash
-        if 'candidates' in response_json and response_json['candidates']:
-            return response_json['candidates'][0]['content']['parts'][0]['text']
-        elif 'error' in response_json:
-            return f"Google API Error: {response_json['error']['message']}"
-        else:
-            return "Unexpected API response format. Try slicing down your document text size."
-    except Exception as e:
-        return f"Error connecting to API. Details: {e}"
 
 uploaded_file = st.file_uploader("Drop your study document here (PDF, DOCX, PPTX)", type=["pdf", "docx", "pptx"])
 
@@ -99,7 +89,6 @@ if uploaded_file:
         
         tab1, tab2, tab3 = st.tabs(["✨ ELI5 Summary", "🧠 Active Recall Quiz", "📋 Concept Map Table"])
         
-        # Extra safe truncation to make sure large files never overload the API request
         with st.spinner("Processing text..."):
             raw_text = extract_text(uploaded_file)
             truncated_text = raw_text[:8000] 
