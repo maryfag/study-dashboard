@@ -54,12 +54,30 @@ def extract_text(uploaded_file):
     return text
 
 def ask_gemini(api_key, prompt_text):
-    url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={api_key}"
-    headers = {'Content-Type': 'application/json'}
-    payload = {"contents": [{"parts": [{"text": prompt_text}]}]}
-    try:
-        response = requests.post(url, headers=headers, json=payload)
-        response_json = response.json()
+    # Try the main model first
+    models = ["gemini-2.5-flash", "gemini-2.5-flash-8b"]
+    
+    for model in models:
+        url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={api_key}"
+        headers = {'Content-Type': 'application/json'}
+        payload = {"contents": [{"parts": [{"text": prompt_text}]}]}
+        
+        try:
+            response = requests.post(url, headers=headers, json=payload)
+            response_json = response.json()
+            
+            if 'candidates' in response_json and response_json['candidates']:
+                return response_json['candidates'][0]['content']['parts'][0]['text']
+            elif 'error' in response_json:
+                # If it's a high demand or quota issue, loop to the backup model
+                error_msg = response_json['error']['message']
+                if "demand" in error_msg.lower() or "quota" in error_msg.lower():
+                    continue
+                return f"Google API Error: {error_msg}"
+        except Exception as e:
+            continue
+            
+    return "🚨 Both public AI server lines are packed right now. Tap the button again in 10 seconds to bypass the crowd!"
         
         # Safe checking to prevent the 'candidates' crash
         if 'candidates' in response_json and response_json['candidates']:
