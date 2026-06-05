@@ -1,5 +1,5 @@
 import streamlit as st
-import PyPDF2
+import pypdf  # Swapped out PyPDF2 for the much more stable pypdf
 from docx import Document
 from pptx import Presentation
 import requests
@@ -12,7 +12,6 @@ st.write("Upload a slide, doc, or PDF, then choose how you want to conquer it.")
 # --- SMART API KEY ROTATION SETUP ---
 api_keys = []
 
-# Check the vault for up to 3 separate free keys
 if "GEMINI_API_KEY_1" in st.secrets and st.secrets["GEMINI_API_KEY_1"]:
     api_keys.append(st.secrets["GEMINI_API_KEY_1"])
 if "GEMINI_API_KEY_2" in st.secrets and st.secrets["GEMINI_API_KEY_2"]:
@@ -20,12 +19,10 @@ if "GEMINI_API_KEY_2" in st.secrets and st.secrets["GEMINI_API_KEY_2"]:
 if "GEMINI_API_KEY_3" in st.secrets and st.secrets["GEMINI_API_KEY_3"]:
     api_keys.append(st.secrets["GEMINI_API_KEY_3"])
 
-# Permanent fallback: ALWAYS show a sidebar input so the app never freezes up if secrets are blank
 manual_key = st.sidebar.text_input("Backup API Key Entry (Only needed if Secrets Vault is empty)", type="password")
 if manual_key:
     api_keys.append(manual_key)
 
-# Select an active key from your pool
 api_key = random.choice(api_keys) if api_keys else None
 
 def extract_text(uploaded_file):
@@ -33,10 +30,14 @@ def extract_text(uploaded_file):
     text = ""
     try:
         if filename.endswith('.pdf'):
-            pdf_reader = PyPDF2.PdfReader(uploaded_file)
+            # Using the safer pypdf reader that doesn't crash the script on bad characters
+            pdf_reader = pypdf.PdfReader(uploaded_file)
             for page in pdf_reader.pages:
-                t = page.extract_text()
-                if t: text += t + "\n"
+                try:
+                    t = page.extract_text()
+                    if t: text += t + "\n"
+                except:
+                    continue  # Safely skip unreadable pages instead of crashing everything
         elif filename.endswith('.docx'):
             doc = Document(uploaded_file)
             for para in doc.paragraphs:
@@ -48,22 +49,18 @@ def extract_text(uploaded_file):
                     if hasattr(shape, "text") and shape.text.strip():
                         text += shape.text.strip() + "\n"
     except Exception as e:
-        return f"Error reading file text: {e}"
+        return f"Error reading file structure: {e}"
     return text
 
 def ask_gemini(api_key, prompt_text):
-    # Try the main model first; fallback to 8b if the server is crowded
     models = ["gemini-2.5-flash", "gemini-2.5-flash-8b"]
-    
     for model in models:
         url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={api_key}"
         headers = {'Content-Type': 'application/json'}
         payload = {"contents": [{"parts": [{"text": prompt_text}]}]}
-        
         try:
             response = requests.post(url, headers=headers, json=payload)
             response_json = response.json()
-            
             if 'candidates' in response_json and response_json['candidates']:
                 return response_json['candidates'][0]['content']['parts'][0]['text']
             elif 'error' in response_json:
@@ -71,26 +68,28 @@ def ask_gemini(api_key, prompt_text):
                 if "demand" in error_msg.lower() or "quota" in error_msg.lower():
                     continue
                 return f"Google API Error: {error_msg}"
-        except Exception as e:
+        except:
             continue
-            
-    return "🚨 Both public AI server lines are packed right now. Tap the button again in 10 seconds to bypass the crowd!"
+    return "🚨 Both public AI server lines are packed right now. Tap the button again in 10 seconds!"
 
 uploaded_file = st.file_uploader("Drop your study document here (PDF, DOCX, PPTX)", type=["pdf", "docx", "pptx"])
 
-# Layout displays immediately when a file is dropped in
 if uploaded_file:
+    # We display the tabs completely OUTSIDE the text-processing blocks 
+    # so they show up no matter what happens to the file!
     tab1, tab2, tab3 = st.tabs(["✨ ELI5 Summary", "🧠 Active Recall Quiz", "📋 Concept Map Table"])
     
-    with st.spinner("Processing document text..."):
-        raw_text = extract_text(uploaded_file)
-        truncated_text = raw_text[:9000] 
+    # Safely extract text without blowing up the page
+    raw_text = extract_text(uploaded_file)
+    truncated_text = raw_text[:9000] if raw_text else ""
 
     with tab1:
         st.subheader("Plain English Breakdown")
         if st.button("🚀 Generate Summary Now"):
             if not api_key:
                 st.error("Missing API Key! Please save your key in the Streamlit Secrets Vault or paste it into the left sidebar box.")
+            elif not truncated_text.strip():
+                st.error("Could not extract any text from this document. It might be a scanned image PDF. Try uploading a text-based document or slide deck!")
             else:
                 with st.spinner("Stripping out jargon..."):
                     prompt = f"Analyze this study material and give me a comprehensive 'Explain Like I'm 5' summary. Break down complex jargon into simple, memorable analogies:\n\n{truncated_text}"
@@ -101,6 +100,8 @@ if uploaded_file:
         if st.button("🚀 Generate Active Recall Quiz"):
             if not api_key:
                 st.error("Missing API Key! Please save your key in the Streamlit Secrets Vault or paste it into the left sidebar box.")
+            elif not truncated_text.strip():
+                st.error("Could not extract any text from this document.")
             else:
                 with st.spinner("Building interactive flashcard questions..."):
                     prompt = f"""
@@ -125,6 +126,8 @@ if uploaded_file:
         if st.button("🚀 Generate Cheat Sheet Table"):
             if not api_key:
                 st.error("Missing API Key! Please save your key in the Streamlit Secrets Vault or paste it into the left sidebar box.")
+            elif not truncated_text.strip():
+                st.error("Could not extract any text from this document.")
             else:
                 with st.spinner("Extracting terms and formulas into a table..."):
                     prompt = f"""
