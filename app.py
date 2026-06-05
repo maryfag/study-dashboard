@@ -8,11 +8,27 @@ st.set_page_config(page_title="Ultimate Study Dashboard", layout="centered")
 st.title("📚 Your Ultimate Exam Survival Dashboard")
 st.write("Upload a slide, doc, or PDF, then choose how you want to conquer it.")
 
-# Securely check the cloud vault for the key first
-if "GEMINI_API_KEY" in st.secrets:
-    api_key = st.secrets["GEMINI_API_KEY"]
-else:
-    api_key = st.sidebar.text_input("Enter Gemini API Key", type="password")
+import random  # Put this at the very top line with your other imports
+
+# --- SMART API KEY ROTATION SETUP ---
+api_keys = []
+
+# Check the vault for up to 3 separate free keys
+if "GEMINI_API_KEY_1" in st.secrets and st.secrets["GEMINI_API_KEY_1"]:
+    api_keys.append(st.secrets["GEMINI_API_KEY_1"])
+if "GEMINI_API_KEY_2" in st.secrets and st.secrets["GEMINI_API_KEY_2"]:
+    api_keys.append(st.secrets["GEMINI_API_KEY_2"])
+if "GEMINI_API_KEY_3" in st.secrets and st.secrets["GEMINI_API_KEY_3"]:
+    api_keys.append(st.secrets["GEMINI_API_KEY_3"])
+
+# Fallback to manual sidebar entry if the vault is completely empty
+if not api_keys:
+    manual_key = st.sidebar.text_input("Enter Gemini API Key", type="password")
+    if manual_key:
+        api_keys.append(manual_key)
+
+# Pick a random key from the active pool for this request to share the traffic load!
+api_key = random.choice(api_keys) if api_keys else None
 
 def extract_text(uploaded_file):
     filename = uploaded_file.name
