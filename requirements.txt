@@ -1,5 +1,5 @@
-streamlit
 pypdf
+streamlit
 python-docx
 python-pptx
 requests
