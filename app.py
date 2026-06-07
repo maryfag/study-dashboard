@@ -1,5 +1,5 @@
-import streamlit as st
-import pypdf  # Swapped out PyPDF2 for the much more stable pypdf
+ import streamlit as st
+import pypdf
 from docx import Document
 from pptx import Presentation
 import requests
@@ -30,14 +30,13 @@ def extract_text(uploaded_file):
     text = ""
     try:
         if filename.endswith('.pdf'):
-            # Using the safer pypdf reader that doesn't crash the script on bad characters
             pdf_reader = pypdf.PdfReader(uploaded_file)
             for page in pdf_reader.pages:
                 try:
                     t = page.extract_text()
                     if t: text += t + "\n"
                 except:
-                    continue  # Safely skip unreadable pages instead of crashing everything
+                    continue
         elif filename.endswith('.docx'):
             doc = Document(uploaded_file)
             for para in doc.paragraphs:
@@ -53,7 +52,9 @@ def extract_text(uploaded_file):
     return text
 
 def ask_gemini(api_key, prompt_text):
-    models = ["gemini-2.5-flash", "gemini-2.5-flash-8b"]
+    # FIX: Using the exact correct model names for the beta endpoint
+    models = ["gemini-2.5-flash", "gemini-1.5-flash"]
+    
     for model in models:
         url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={api_key}"
         headers = {'Content-Type': 'application/json'}
@@ -65,7 +66,7 @@ def ask_gemini(api_key, prompt_text):
                 return response_json['candidates'][0]['content']['parts'][0]['text']
             elif 'error' in response_json:
                 error_msg = response_json['error']['message']
-                if "demand" in error_msg.lower() or "quota" in error_msg.lower():
+                if "demand" in error_msg.lower() or "quota" in error_msg.lower() or "not found" in error_msg.lower():
                     continue
                 return f"Google API Error: {error_msg}"
         except:
@@ -75,11 +76,8 @@ def ask_gemini(api_key, prompt_text):
 uploaded_file = st.file_uploader("Drop your study document here (PDF, DOCX, PPTX)", type=["pdf", "docx", "pptx"])
 
 if uploaded_file:
-    # We display the tabs completely OUTSIDE the text-processing blocks 
-    # so they show up no matter what happens to the file!
     tab1, tab2, tab3 = st.tabs(["✨ ELI5 Summary", "🧠 Active Recall Quiz", "📋 Concept Map Table"])
     
-    # Safely extract text without blowing up the page
     raw_text = extract_text(uploaded_file)
     truncated_text = raw_text[:9000] if raw_text else ""
 
@@ -89,7 +87,7 @@ if uploaded_file:
             if not api_key:
                 st.error("Missing API Key! Please save your key in the Streamlit Secrets Vault or paste it into the left sidebar box.")
             elif not truncated_text.strip():
-                st.error("Could not extract any text from this document. It might be a scanned image PDF. Try uploading a text-based document or slide deck!")
+                st.error("Could not extract any text from this document.")
             else:
                 with st.spinner("Stripping out jargon..."):
                     prompt = f"Analyze this study material and give me a comprehensive 'Explain Like I'm 5' summary. Break down complex jargon into simple, memorable analogies:\n\n{truncated_text}"
