@@ -1,4 +1,4 @@
- import streamlit as st
+import streamlit as st
 import pypdf
 from docx import Document
 from pptx import Presentation
@@ -144,3 +144,4 @@ if uploaded_file:
                     {truncated_text}
                     """
                     st.markdown(ask_gemini(api_key, prompt))
+                   
