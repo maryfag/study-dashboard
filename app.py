@@ -1,4 +1,5 @@
-import streamlit as st
+
+  import streamlit as st
 import pypdf
 from docx import Document
 from pptx import Presentation
@@ -52,7 +53,6 @@ def extract_text(uploaded_file):
     return text
 
 def ask_gemini(api_key, prompt_text):
-    # FIX: Using the exact correct model names for the beta endpoint
     models = ["gemini-2.5-flash", "gemini-1.5-flash"]
     
     for model in models:
@@ -76,7 +76,8 @@ def ask_gemini(api_key, prompt_text):
 uploaded_file = st.file_uploader("Drop your study document here (PDF, DOCX, PPTX)", type=["pdf", "docx", "pptx"])
 
 if uploaded_file:
-    tab1, tab2, tab3 = st.tabs(["✨ ELI5 Summary", "🧠 Active Recall Quiz", "📋 Concept Map Table"])
+    # Retaining your clean, working layout tabs
+    tab1, tab2, tab3 = st.tabs(["✨ ELI5 Summary", "🧠 CBT Objective Practice", "📋 Concept Map Table"])
     
     raw_text = extract_text(uploaded_file)
     truncated_text = raw_text[:9000] if raw_text else ""
@@ -94,27 +95,34 @@ if uploaded_file:
                     st.markdown(ask_gemini(api_key, prompt))
 
     with tab2:
-        st.subheader("Test Your Knowledge")
-        if st.button("🚀 Generate Active Recall Quiz"):
+        st.subheader("🤖 Theory-to-CBT Objective Drill")
+        if st.button("🚀 Convert to Objective Questions"):
             if not api_key:
                 st.error("Missing API Key! Please save your key in the Streamlit Secrets Vault or paste it into the left sidebar box.")
             elif not truncated_text.strip():
                 st.error("Could not extract any text from this document.")
             else:
-                with st.spinner("Building interactive flashcard questions..."):
+                with st.spinner("Converting theoretical material into CBT objective format..."):
+                    # UPGRADED PROMPT: Specifically engineered for CBT/OBJ practice
                     prompt = f"""
-                    You are an expert professor. Analyze the uploaded document thoroughly. 
-                    Your job is to build an interactive Active Recall study quiz by pulling distinct conceptual questions across different sections, chapters, or slides of the material.
+                    You are an expert examiner building a Computer Based Test (CBT). 
+                    Analyze the uploaded text or tutorial questions, extract the most critical theoretical points, and convert them into a standard objective exam style.
+                    
+                    Please generate 5-8 multiple-choice or fill-in-the-blank objective questions. 
                     
                     CRITICAL FORMATTING INSTRUCTIONS:
-                    For each question, format it EXACTLY like this using standard Markdown text blocks. Do not use complex HTML layouts:
+                    Format each question explicitly using standard Markdown notation like this:
                     
-                    **Question X: [Insert clear, challenging question from the material]**
-                    * 👉 **Answer:** || [Insert the precise, detailed answer here] ||
+                    **Question X: [Insert clear, objective question here]**
+                    A) [Option A]
+                    B) [Option B]
+                    C) [Option C]
+                    D) [Option D]
+                    * 👉 **Correct Answer:** || [State the letter and a brief 1-sentence reason why it is correct] ||
                     
-                    Make sure you extract 5-8 solid questions distributed evenly across the chapters or slides.
+                    Ensure the answers stay completely hidden inside the spoiler block so users can self-test.
                     
-                    Study Text:
+                    Study Text / Tutorial Sheet:
                     {truncated_text}
                     """
                     st.markdown(ask_gemini(api_key, prompt))
@@ -144,4 +152,4 @@ if uploaded_file:
                     {truncated_text}
                     """
                     st.markdown(ask_gemini(api_key, prompt))
-                   
+                  
