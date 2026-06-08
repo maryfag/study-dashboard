@@ -1,5 +1,4 @@
-
-  import streamlit as st
+import streamlit as st
 import pypdf
 from docx import Document
 from pptx import Presentation
@@ -76,7 +75,6 @@ def ask_gemini(api_key, prompt_text):
 uploaded_file = st.file_uploader("Drop your study document here (PDF, DOCX, PPTX)", type=["pdf", "docx", "pptx"])
 
 if uploaded_file:
-    # Retaining your clean, working layout tabs
     tab1, tab2, tab3 = st.tabs(["✨ ELI5 Summary", "🧠 CBT Objective Practice", "📋 Concept Map Table"])
     
     raw_text = extract_text(uploaded_file)
@@ -102,27 +100,29 @@ if uploaded_file:
             elif not truncated_text.strip():
                 st.error("Could not extract any text from this document.")
             else:
-                with st.spinner("Converting theoretical material into CBT objective format..."):
-                    # UPGRADED PROMPT: Specifically engineered for CBT/OBJ practice
+                with st.spinner("Converting theoretical material into strict CBT multiple-choice format..."):
+                    # CRITICAL FIXED PROMPT: Enforces strict A, B, C, D objective style
                     prompt = f"""
-                    You are an expert examiner building a Computer Based Test (CBT). 
-                    Analyze the uploaded text or tutorial questions, extract the most critical theoretical points, and convert them into a standard objective exam style.
+                    You are a strict Computer Based Test (CBT) examiner. 
+                    Analyze the uploaded text or theory tutorial sheet and transform the theoretical concepts into highly practical multiple-choice objective questions.
                     
-                    Please generate 5-8 multiple-choice or fill-in-the-blank objective questions. 
+                    You must output exactly 5 to 8 distinct multiple-choice questions. 
                     
-                    CRITICAL FORMATTING INSTRUCTIONS:
-                    Format each question explicitly using standard Markdown notation like this:
+                    STRICT FORMATTING MANDATE:
+                    Every single question must have exactly 4 options (A, B, C, D). You are strictly forbidden from writing open-ended or long-form essay questions.
                     
-                    **Question X: [Insert clear, objective question here]**
+                    Follow this exact structure for every item:
+                    
+                    **Question X: [Insert the objective/multiple-choice question here]**
                     A) [Option A]
                     B) [Option B]
                     C) [Option C]
                     D) [Option D]
-                    * 👉 **Correct Answer:** || [State the letter and a brief 1-sentence reason why it is correct] ||
+                    * 👉 **Correct Answer:** || [State the correct letter option, followed by a crisp 1-sentence explanation of why it is the correct answer] ||
                     
-                    Ensure the answers stay completely hidden inside the spoiler block so users can self-test.
+                    Make sure the questions test quick recall of phases, terms, characteristics, and classifications found directly in the material. Do not include any conversational text before or after the questions.
                     
-                    Study Text / Tutorial Sheet:
+                    Study Text / Theoretical Material:
                     {truncated_text}
                     """
                     st.markdown(ask_gemini(api_key, prompt))
@@ -152,4 +152,3 @@ if uploaded_file:
                     {truncated_text}
                     """
                     st.markdown(ask_gemini(api_key, prompt))
-                  
