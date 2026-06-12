@@ -41,7 +41,7 @@ def extract_text(uploaded_file):
             doc = Document(uploaded_file)
             for para in doc.paragraphs:
                 text += para.text + "\n"
-        elif filename.endswith('.pptx'):
+        elif filename.endswith('.pptx') or filename.endswith('.pptm'):
             prs = Presentation(uploaded_file)
             for slide in prs.slides:
                 for shape in slide.shapes:
@@ -51,13 +51,19 @@ def extract_text(uploaded_file):
         return f"Error reading file structure: {e}"
     return text
 
-def ask_gemini(api_key, prompt_text):
+def ask_gemini(api_key, prompt_text, dynamic_mode=False):
     models = ["gemini-2.5-flash", "gemini-1.5-flash"]
+    
+    # If dynamic_mode is True, we crank up the temperature to make the explanations creative and varied on each refresh
+    generation_config = {"temperature": 0.95 if dynamic_mode else 0.2}
     
     for model in models:
         url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={api_key}"
         headers = {'Content-Type': 'application/json'}
-        payload = {"contents": [{"parts": [{"text": prompt_text}]}]}
+        payload = {
+            "contents": [{"parts": [{"text": prompt_text}]}],
+            "generationConfig": generation_config
+        }
         try:
             response = requests.post(url, headers=headers, json=payload)
             response_json = response.json()
@@ -72,41 +78,78 @@ def ask_gemini(api_key, prompt_text):
             continue
     return "🚨 Both public AI server lines are packed right now. Tap the button again in 10 seconds!"
 
-uploaded_file = st.file_uploader("Drop your study document here (PDF, DOCX, PPTX)", type=["pdf", "docx", "pptx"])
+uploaded_file = st.file_uploader("Drop your study document here (PDF, DOCX, PPTX, PPTM)", type=["pdf", "docx", "pptx", "pptm"])
 
 if uploaded_file:
     tab1, tab2, tab3 = st.tabs(["✨ ELI5 Summary", "🧠 CBT Objective Practice", "📋 Concept Map Table"])
     
+    # Gather raw text from file
     raw_text = extract_text(uploaded_file)
-    truncated_text = raw_text[:9000] if raw_text else ""
+    
+    # AUTOMATIC TEXT CHUNKING ENGINE (Creates 4 sequential segments from large material)
+    total_length = len(raw_text) if raw_text else 0
+    chunk_size = max(1, total_length // 4)
+    
+    chunk_1 = raw_text[0:chunk_size] if total_length > 0 else ""
+    chunk_2 = raw_text[chunk_size:chunk_size*2] if total_length > 0 else ""
+    chunk_3 = raw_text[chunk_size*2:chunk_size*3] if total_length > 0 else ""
+    chunk_4 = raw_text[chunk_size*3:] if total_length > 0 else ""
 
     with tab1:
         st.subheader("Plain English Breakdown")
+        st.caption("💡 Tip: Click the button again to get a completely different version with fresh analogies and examples!")
         if st.button("🚀 Generate Summary Now"):
             if not api_key:
-                st.error("Missing API Key! Please save your key in the Streamlit Secrets Vault or paste it into the left sidebar box.")
-            elif not truncated_text.strip():
+                st.error("Missing API Key!")
+            elif not chunk_1.strip():
                 st.error("Could not extract any text from this document.")
             else:
-                with st.spinner("Stripping out jargon..."):
-                    prompt = f"Analyze this study material and give me a comprehensive 'Explain Like I'm 5' summary. Break down complex jargon into simple, memorable analogies:\n\n{truncated_text}"
-                    st.markdown(ask_gemini(api_key, prompt))
+                with st.spinner("Stripping out jargon uniquely..."):
+                    # Uses the first chunk for core summary concepts
+                    prompt = f"Analyze this study material and give me a comprehensive 'Explain Like I'm 5' summary. Break down complex jargon into simple, memorable analogies. Make your phrasing unique:\n\n{chunk_1[:9000]}"
+                    # dynamic_mode=True triggers the creative temperature variance
+                    st.markdown(ask_gemini(api_key, prompt, dynamic_mode=True))
 
     with tab2:
         st.subheader("🤖 Theory-to-CBT Objective Drill")
-        if st.button("🚀 Convert to Objective Questions"):
+        st.write("Select which depth of the syllabus notes you want to generate questions from:")
+        
+        # Dropdown selection matrix for progressive batches
+        batch_selection = st.selectbox(
+            "Choose Target Study Block:",
+            ["Batch 1: Introduction & Foundation Concepts", 
+             "Batch 2: Core Methodologies & Process Details", 
+             "Batch 3: Deep Technical Content", 
+             "Batch 4: Advanced Scenarios & Conclusions"]
+        )
+        
+        # Connect selections to hidden structural segments
+        if batch_selection.startswith("Batch 1"):
+            selected_text = chunk_1[:9000]
+            start_num = 1
+        elif batch_selection.startswith("Batch 2"):
+            selected_text = chunk_2[:9000]
+            start_num = 8
+        elif batch_selection.startswith("Batch 3"):
+            selected_text = chunk_3[:9000]
+            start_num = 15
+        else:
+            selected_text = chunk_4[:9000]
+            start_num = 22
+
+        if st.button("🚀 Convert Selected Block to Questions"):
             if not api_key:
-                st.error("Missing API Key! Please save your key in the Streamlit Secrets Vault or paste it into the left sidebar box.")
-            elif not truncated_text.strip():
-                st.error("Could not extract any text from this document.")
+                st.error("Missing API Key!")
+            elif not selected_text.strip():
+                st.error("This segment of the document doesn't contain enough text to extract data. Try an earlier batch!")
             else:
-                with st.spinner("Converting theoretical material into strict CBT multiple-choice format..."):
-                    # CRITICAL FIXED PROMPT: Enforces strict A, B, C, D objective style
+                with st.spinner(f"Mining questions starting from Q{start_num} for this specific text block..."):
                     prompt = f"""
                     You are a strict Computer Based Test (CBT) examiner. 
-                    Analyze the uploaded text or theory tutorial sheet and transform the theoretical concepts into highly practical multiple-choice objective questions.
+                    Analyze the uploaded text slice and transform the theoretical concepts into highly practical multiple-choice objective questions.
                     
-                    You must output exactly 5 to 8 distinct multiple-choice questions. 
+                    You must output exactly 7 to 8 distinct multiple-choice questions.
+                    You MUST start numbering your output starting strictly from Question {start_num}.
                     
                     STRICT FORMATTING MANDATE:
                     Every single question must have exactly 4 options (A, B, C, D). You are strictly forbidden from writing open-ended or long-form essay questions.
@@ -122,17 +165,17 @@ if uploaded_file:
                     
                     Make sure the questions test quick recall of phases, terms, characteristics, and classifications found directly in the material. Do not include any conversational text before or after the questions.
                     
-                    Study Text / Theoretical Material:
-                    {truncated_text}
+                    Study Text Section:
+                    {selected_text}
                     """
-                    st.markdown(ask_gemini(api_key, prompt))
+                    st.markdown(ask_gemini(api_key, prompt, dynamic_mode=False))
 
     with tab3:
         st.subheader("Key Acronyms, Definitions & Formulas")
         if st.button("🚀 Generate Cheat Sheet Table"):
             if not api_key:
-                st.error("Missing API Key! Please save your key in the Streamlit Secrets Vault or paste it into the left sidebar box.")
-            elif not truncated_text.strip():
+                st.error("Missing API Key!")
+            elif not chunk_1.strip():
                 st.error("Could not extract any text from this document.")
             else:
                 with st.spinner("Extracting terms and formulas into a table..."):
@@ -149,6 +192,6 @@ if uploaded_file:
                     Extract at least 8-12 foundational elements from the text below:
                     
                     Study Text:
-                    {truncated_text}
+                    {chunk_1[:9000]}
                     """
-                    st.markdown(ask_gemini(api_key, prompt))
+                    st.markdown(ask_gemini(api_key, prompt, dynamic_mode=False))
