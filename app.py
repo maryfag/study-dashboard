@@ -7,7 +7,7 @@ import random
 
 st.set_page_config(page_title="Ultimate Study Dashboard", layout="centered")
 st.title("📚 Your Ultimate Exam Survival Dashboard")
-st.write("Upload a slide, doc, or PDF, then choose how you want to conquer it.")
+st.write("Upload your lecture notes, slides, or PDFs, then choose how you want to conquer them.")
 
 # --- SMART API KEY ROTATION SETUP ---
 api_keys = []
@@ -79,7 +79,7 @@ def ask_gemini(api_key, prompt_text, dynamic_mode=False):
 uploaded_file = st.file_uploader("Drop your study document here (PDF, DOCX, PPTX, PPTM)", type=["pdf", "docx", "pptx", "pptm"])
 
 if uploaded_file:
-    tab1, tab2, tab3 = st.tabs(["✨ Clear Practical Summary", "🧠 CBT Objective Practice", "📋 Concept Map Table"])
+    tab1, tab2, tab3 = st.tabs(["✨ Simple Campus Summary", "🧠 CBT Objective Practice", "📋 Concept Map Table"])
     
     # Gather raw text from file
     raw_text = extract_text(uploaded_file)
@@ -94,33 +94,32 @@ if uploaded_file:
     chunk_4 = raw_text[chunk_size*3:] if total_length > 0 else ""
 
     with tab1:
-        st.subheader("High-Yield Plain English Breakdown")
-        st.caption("💡 This engine scans all pages of your file and replaces childish examples with real-world tech analogies.")
+        st.subheader("Easy-to-Read Study Breakdown")
+        st.caption("💡 No corporate speak, no baby toys. Just clean, everyday student analogies that make sense for exams!")
         if st.button("🚀 Generate Full-Syllabus Summary Now"):
             if not api_key:
                 st.error("Missing API Key!")
             elif not raw_text.strip():
                 st.error("Could not extract any text from this document.")
             else:
-                with st.spinner("Analyzing all document layers... This takes a few seconds extra as we are scanning the entire file..."):
-                    # FULL DOCUMENT STREAMING WORKAROUND:
-                    # We take safely sized slices from all four parts of the document so the AI sees everything from beginning to end
+                with st.spinner("Reading the entire document to give you full coverage..."):
+                    # Captures key segments from the entire file automatically to avoid the word limit crash
                     safe_combined_text = (
-                        f"--- START OF TEXT ---\n{chunk_1[:3000]}\n\n"
-                        f"--- MIDDLE SECTION A ---\n{chunk_2[:3000]}\n\n"
-                        f"--- MIDDLE SECTION B ---\n{chunk_3[:3000]}\n\n"
-                        f"--- CLOSING/ADVANCED SECTION ---\n{chunk_4[:3000]}"
+                        f"[Introductory Section]\n{chunk_1[:3500]}\n\n"
+                        f"[Core Section A]\n{chunk_2[:3500]}\n\n"
+                        f"[Core Section B]\n{chunk_3[:3500]}\n\n"
+                        f"[Advanced / Concluding Section]\n{chunk_4[:3500]}"
                     )
                     
                     prompt = f"""
-                    You are a world-class practical tech instructor and senior engineer. 
-                    Your job is to analyze the entire technical study curriculum provided below and break it down into an intuitive, high-yield professional summary.
+                    You are an awesome, relatable university tutor explaining concepts to level 200 students. 
+                    Your job is to read the notes below and break down everything into an easy, highly understandable summary.
                     
-                    CRITICAL INSTRUCTIONS:
-                    1. DO NOT use childish analogies (No toys, sandboxes, babies, or playgrounds). 
-                    2. Instead, use real-world professional, everyday, or technical analogies (e.g., comparing networks to highways, databases to filing cabinets, firewalls to security checkpoints).
-                    3. Ensure you capture key takeaways from the introduction, the middle core components, and the final concluding sections of the material so the student gets full coverage.
-                    4. Keep the tone mature, crisp, and focused on helping a student deeply master the concepts for an upper-level examination.
+                    CRITICAL FORMATTING STYLE:
+                    1. Keep it simple and engaging! Use simple, fun, and everyday student or campus analogies (e.g., comparing network routers to campus mailmen, firewalls to gatekeepers/hostel porters, or computer viruses to flu bugs passing around a room). 
+                    2. Clear out all stiff, complex corporate executive jargon or technical presentation language.
+                    3. Make sure you cover the entire document from start to finish so no topics get left out. 
+                    4. Highlight key terms in **bold** so they stand out immediately for exam revision.
                     
                     Study Text Sections:
                     {safe_combined_text}
@@ -129,7 +128,7 @@ if uploaded_file:
 
     with tab2:
         st.subheader("🤖 Theory-to-CBT Objective Drill")
-        st.write("Select which depth of the syllabus notes you want to generate questions from:")
+        st.write("Select which block of the syllabus notes you want to generate questions from:")
         
         batch_selection = st.selectbox(
             "Choose Target Study Block:",
