@@ -187,23 +187,36 @@ if uploaded_file:
         if st.button("🚀 Generate Cheat Sheet Table"):
             if not api_key:
                 st.error("Missing API Key!")
-            elif not chunk_1.strip():
+            elif not raw_text.strip():
                 st.error("Could not extract any text from this document.")
             else:
-                with st.spinner("Extracting terms and formulas into a table..."):
+                with st.spinner("Extracting terms and formulas from the entire document..."):
+                    # AUTOMATIC SYLLABUS INTEGRATION: Pulls balanced slices from all 4 chunks
+                    full_syllabus_context = (
+                        f"[Section 1: Foundations]\n{chunk_1[:3000]}\n\n"
+                        f"[Section 2: Core Details]\n{chunk_2[:3000]}\n\n"
+                        f"[Section 3: Deep Technical]\n{chunk_3[:3000]}\n\n"
+                        f"[Section 4: Advanced/Conclusion]\n{chunk_4[:3000]}"
+                    )
+                    
                     prompt = f"""
                     Analyze the following study material and act as a professional summary engine.
-                    Extract every single critical term, network protocol, acronym, core definition, and formula into a clean, comprehensive summary grid.
+                    You must scan all sections from start to finish to ensure full coverage of the entire syllabus.
+                    
+                    Extract every single critical network protocol, acronym, core cybersecurity definition, concept, and formula into a clean, comprehensive summary grid.
                     
                     CRITICAL FORMATTING INSTRUCTIONS:
-                    You MUST format your entire output as a valid Markdown table with exactly two columns. Do not include any conversational intro or outro text. Output ONLY the table.
+                    You MUST format your entire output as a valid Markdown table with exactly two columns. Do not include any conversational intro or outro text. Output ONLY the table itself.
                     
                     | Term / Concept / Acronym | High-Yield Summary & Core Meaning |
                     | :--- | :--- |
                     
-                    Extract at least 8-12 foundational elements from the text below:
+                    Extract at least 12-18 foundational and advanced elements distributed across the text below:
                     
                     Study Text:
-                    {chunk_1[:9000]}
+                    {full_syllabus_context}
                     """
                     st.markdown(ask_gemini(api_key, prompt, dynamic_mode=False))
+
+                    
+                 
