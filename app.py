@@ -4,14 +4,73 @@ from docx import Document
 from pptx import Presentation
 import requests
 import random
+import hashlib
 
 st.set_page_config(page_title="Ultimate Study Dashboard", layout="centered")
+
+# --- CYBERSECURITY ENHANCEMENT: PASSWORD HASHING ---
+def hash_password(password):
+    """Generates a secure SHA-256 hash of a password."""
+    return hashlib.sha256(password.encode()).hexdigest()
+
+# Mock Secure User Database (Username: Hashed Password)
+USER_DB = {
+    "admin": "240aa2b7e21c3118a72e57f50c0303742220f173f0c345bc7291a13e2df48b7d",
+    "student": "57b1190bc1f301476ca8228df776c5b5f8849bfe3e7ca5a6e873995133d1c8f1"
+}
+
+# Initialize Session State Variables for Authentication
+if "authenticated" not in st.session_state:
+    st.session_state.authenticated = False
+if "username" not in st.session_state:
+    st.session_state.username = None
+
+# --- STATE MEMORY CORES: Keeps tabs from wiping out ---
+if "generated_summary" not in st.session_state:
+    st.session_state.generated_summary = None
+if "generated_cbt" not in st.session_state:
+    st.session_state.generated_cbt = None
+if "current_cbt_batch" not in st.session_state:
+    st.session_state.current_cbt_batch = None
+
+# --- AUTHENTICATION INTERFACE LAYER ---
+if not st.session_state.authenticated:
+    st.title("🔒 Secure Portal Access")
+    st.write("Please sign into your student or administrator account to launch the dashboard.")
+    
+    username_input = st.text_input("Username")
+    password_input = st.text_input("Password", type="password")
+    
+    if st.button("Secure Login"):
+        if username_input in USER_DB:
+            if hash_password(password_input) == USER_DB[username_input]:
+                st.session_state.authenticated = True
+                st.session_state.username = username_input
+                st.success("Access Granted! Loading your environment...")
+                st.rerun()
+            else:
+                st.error("Invalid credentials configuration.")
+        else:
+            st.error("Invalid credentials configuration.")
+            
+    st.stop()
+
+# --- PROTECTED APP ZONE ---
+st.sidebar.title(f"👤 Welcome, {st.session_state.username}")
+if st.sidebar.button("Secure Log Out"):
+    # Clear authentication and reset all cached tab states on logout
+    st.session_state.authenticated = False
+    st.session_state.username = None
+    st.session_state.generated_summary = None
+    st.session_state.generated_cbt = None
+    st.session_state.current_cbt_batch = None
+    st.rerun()
+
 st.title("📚 Your Ultimate Exam Survival Dashboard")
 st.write("Upload your lecture notes, slides, or PDFs, then choose how you want to conquer them.")
 
 # --- SMART API KEY ROTATION SETUP ---
 api_keys = []
-
 if "GEMINI_API_KEY_1" in st.secrets and st.secrets["GEMINI_API_KEY_1"]:
     api_keys.append(st.secrets["GEMINI_API_KEY_1"])
 if "GEMINI_API_KEY_2" in st.secrets and st.secrets["GEMINI_API_KEY_2"]:
@@ -19,7 +78,7 @@ if "GEMINI_API_KEY_2" in st.secrets and st.secrets["GEMINI_API_KEY_2"]:
 if "GEMINI_API_KEY_3" in st.secrets and st.secrets["GEMINI_API_KEY_3"]:
     api_keys.append(st.secrets["GEMINI_API_KEY_3"])
 
-manual_key = st.sidebar.text_input("Backup API Key Entry (Only needed if Secrets Vault is empty)", type="password")
+manual_key = st.sidebar.text_input("Backup API Key Entry", type="password")
 if manual_key:
     api_keys.append(manual_key)
 
@@ -35,8 +94,7 @@ def extract_text(uploaded_file):
                 try:
                     t = page.extract_text()
                     if t: text += t + "\n"
-                except:
-                    continue
+                except: continue
         elif filename.endswith('.docx'):
             doc = Document(uploaded_file)
             for para in doc.paragraphs:
@@ -72,19 +130,15 @@ def ask_gemini(api_key, prompt_text, dynamic_mode=False):
                 if "demand" in error_msg.lower() or "quota" in error_msg.lower() or "not found" in error_msg.lower():
                     continue
                 return f"Google API Error: {error_msg}"
-        except:
-            continue
+        except: continue
     return "🚨 Server lines are busy. Tap the button again!"
 
 uploaded_file = st.file_uploader("Drop your study document here (PDF, DOCX, PPTX, PPTM)", type=["pdf", "docx", "pptx", "pptm"])
 
 if uploaded_file:
-    tab1, tab2, tab3 = st.tabs(["✨ Simple Campus Summary", "🧠 CBT Objective Practice", "📋 Concept Map Table"])
+    tab1, tab2, tab3 = st.tabs(["✨ Custom Explanation Summary", "🧠 CBT Objective Practice", "📋 Concept Map Table"])
     
-    # Gather raw text from file
     raw_text = extract_text(uploaded_file)
-    
-    # AUTOMATIC TEXT CHUNKING ENGINE (Splits document text into 4 clean parts)
     total_length = len(raw_text) if raw_text else 0
     chunk_size = max(1, total_length // 4)
     
@@ -94,16 +148,22 @@ if uploaded_file:
     chunk_4 = raw_text[chunk_size*3:] if total_length > 0 else ""
 
     with tab1:
-        st.subheader("Easy-to-Read Study Breakdown")
-        st.caption("💡 No corporate speak, no baby toys. Just clean, everyday student analogies that make sense for exams!")
-        if st.button("🚀 Generate Full-Syllabus Summary Now"):
+        st.subheader("Tailored Multi-Mode Explanation Engine")
+        
+        explanation_mode = st.selectbox(
+            "Choose Your Desired Explanation Persona:",
+            ["✨ Campus Buddy Mode (Level 200 Analogy Style)", 
+             "🧠 Deep Technical Mode (Upper-Level Technical Rigor)", 
+             "🧸 Layman Mode (Explain Like I'm 5 Style)"]
+        )
+        
+        if st.button("🚀 Generate Tailored Summary"):
             if not api_key:
                 st.error("Missing API Key!")
             elif not raw_text.strip():
                 st.error("Could not extract any text from this document.")
             else:
-                with st.spinner("Reading the entire document to give you full coverage..."):
-                    # Captures key segments from the entire file automatically to avoid the word limit crash
+                with st.spinner("Processing custom persona analytics across the full document..."):
                     safe_combined_text = (
                         f"[Introductory Section]\n{chunk_1[:3500]}\n\n"
                         f"[Core Section A]\n{chunk_2[:3500]}\n\n"
@@ -111,20 +171,27 @@ if uploaded_file:
                         f"[Advanced / Concluding Section]\n{chunk_4[:3500]}"
                     )
                     
-                    prompt = f"""
-                    You are an awesome, relatable university tutor explaining concepts to level 200 students. 
-                    Your job is to read the notes below and break down everything into an easy, highly understandable summary.
+                    if "Campus Buddy" in explanation_mode:
+                        style_prompt = "You are a relatable university peer tutor. Use simple, engaging, and funny student/campus analogies (like hostel porters for firewalls) to explain everything simply. Highlight key terms in **bold**."
+                    elif "Deep Technical" in explanation_mode:
+                        style_prompt = "You are a senior technical enterprise architect. Break down the content using exact, rigorous academic definitions, engineering mechanics, and precise technical infrastructure logic. Highlight key terms in **bold**."
+                    else:
+                        style_prompt = "You are explaining this to a complete novice. Use ultra-simplified, everyday non-tech visual elements. Avoid any advanced technical concepts or assumptions of prior engineering knowledge. Highlight key terms in **bold**."
                     
-                    CRITICAL FORMATTING STYLE:
-                    1. Keep it simple and engaging! Use simple, fun, and everyday student or campus analogies (e.g., comparing network routers to campus mailmen, firewalls to gatekeepers/hostel porters, or computer viruses to flu bugs passing around a room). 
-                    2. Clear out all stiff, complex corporate executive jargon or technical presentation language.
-                    3. Make sure you cover the entire document from start to finish so no topics get left out. 
-                    4. Highlight key terms in **bold** so they stand out immediately for exam revision.
+                    prompt = f"""
+                    You are an expert personalized summary processor. 
+                    {style_prompt}
+                    Ensure your explanation covers the entire document provided below sequentially from start to finish.
                     
                     Study Text Sections:
                     {safe_combined_text}
                     """
-                    st.markdown(ask_gemini(api_key, prompt, dynamic_mode=True))
+                    # Save answer directly into State Memory
+                    st.session_state.generated_summary = ask_gemini(api_key, prompt, dynamic_mode=True)
+
+        # If a summary exists in memory, keep rendering it on screen!
+        if st.session_state.generated_summary:
+            st.markdown(st.session_state.generated_summary)
 
     with tab2:
         st.subheader("🤖 Theory-to-CBT Objective Drill")
@@ -155,32 +222,35 @@ if uploaded_file:
             if not api_key:
                 st.error("Missing API Key!")
             elif not selected_text.strip():
-                st.error("This segment of the document doesn't contain enough text to extract data. Try an earlier batch!")
+                st.error("This segment of the document doesn't contain enough text to extract data.")
             else:
                 with st.spinner(f"Mining questions starting from Q{start_num} for this specific text block..."):
                     prompt = f"""
                     You are a strict Computer Based Test (CBT) examiner. 
                     Analyze the uploaded text slice and transform the theoretical concepts into highly practical multiple-choice objective questions.
-                    
                     You must output exactly 7 to 8 distinct multiple-choice questions.
                     You MUST start numbering your output starting strictly from Question {start_num}.
                     
-                    STRICT FORMATTING MANDATE:
-                    Every single question must have exactly 4 options (A, B, C, D). You are strictly forbidden from writing open-ended or long-form essay questions.
-                    
+                    STRICT FORMATTING MANDATE: Every single question must have exactly 4 options (A, B, C, D).
                     Follow this exact structure for every item:
                     
-                    **Question X: [Insert the objective/multiple-choice question here]**
+                    **Question X: [Insert question here]**
                     A) [Option A]
                     B) [Option B]
                     C) [Option C]
                     D) [Option D]
-                    * 👉 **Correct Answer:** || [State the correct letter option, followed by a crisp 1-sentence explanation of why it is the correct answer] ||
+                    * 👉 **Correct Answer:** || [State correct letter, followed by 1-sentence explanation] ||
                     
                     Study Text Section:
                     {selected_text}
                     """
-                    st.markdown(ask_gemini(api_key, prompt, dynamic_mode=False))
+                    # Save both the question text and the selected batch name to memory
+                    st.session_state.generated_cbt = ask_gemini(api_key, prompt, dynamic_mode=False)
+                    st.session_state.current_cbt_batch = batch_selection
+
+        # Keep rendering the saved quiz if the user switches back, but clear it if they choose a different batch dropdown
+        if st.session_state.generated_cbt and st.session_state.current_cbt_batch == batch_selection:
+            st.markdown(st.session_state.generated_cbt)
 
     with tab3:
         st.subheader("Key Acronyms, Definitions & Formulas")
@@ -191,7 +261,6 @@ if uploaded_file:
                 st.error("Could not extract any text from this document.")
             else:
                 with st.spinner("Extracting terms and formulas from the entire document..."):
-                    # AUTOMATIC SYLLABUS INTEGRATION: Pulls balanced slices from all 4 chunks
                     full_syllabus_context = (
                         f"[Section 1: Foundations]\n{chunk_1[:3000]}\n\n"
                         f"[Section 2: Core Details]\n{chunk_2[:3000]}\n\n"
@@ -201,22 +270,13 @@ if uploaded_file:
                     
                     prompt = f"""
                     Analyze the following study material and act as a professional summary engine.
-                    You must scan all sections from start to finish to ensure full coverage of the entire syllabus.
-                    
                     Extract every single critical network protocol, acronym, core cybersecurity definition, concept, and formula into a clean, comprehensive summary grid.
-                    
-                    CRITICAL FORMATTING INSTRUCTIONS:
-                    You MUST format your entire output as a valid Markdown table with exactly two columns. Do not include any conversational intro or outro text. Output ONLY the table itself.
+                    You MUST format your entire output as a valid Markdown table with exactly two columns. Output ONLY the table itself.
                     
                     | Term / Concept / Acronym | High-Yield Summary & Core Meaning |
                     | :--- | :--- |
                     
-                    Extract at least 12-18 foundational and advanced elements distributed across the text below:
-                    
-                    Study Text:
+                    Extract at least 12-18 foundational and advanced elements:
                     {full_syllabus_context}
                     """
                     st.markdown(ask_gemini(api_key, prompt, dynamic_mode=False))
-
-                    
-                 
