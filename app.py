@@ -4,26 +4,8 @@ from docx import Document
 from pptx import Presentation
 import requests
 import random
-import hashlib
 
 st.set_page_config(page_title="Ultimate Study Dashboard", layout="centered")
-
-# --- CYBERSECURITY ENHANCEMENT: PASSWORD HASHING ---
-def hash_password(password):
-    """Generates a secure SHA-256 hash of a password."""
-    return hashlib.sha256(password.encode()).hexdigest()
-
-# Mock Secure User Database (Username: Hashed Password)
-USER_DB = {
-    "admin": "240aa2b7e21c3118a72e57f50c0303742220f173f0c345bc7291a13e2df48b7d",
-    "student": "57b1190bc1f301476ca8228df776c5b5f8849bfe3e7ca5a6e873995133d1c8f1"
-}
-
-# Initialize Session State Variables for Authentication
-if "authenticated" not in st.session_state:
-    st.session_state.authenticated = False
-if "username" not in st.session_state:
-    st.session_state.username = None
 
 # --- STATE MEMORY CORES: Keeps tabs from wiping out ---
 if "generated_summary" not in st.session_state:
@@ -32,39 +14,6 @@ if "generated_cbt" not in st.session_state:
     st.session_state.generated_cbt = None
 if "current_cbt_batch" not in st.session_state:
     st.session_state.current_cbt_batch = None
-
-# --- AUTHENTICATION INTERFACE LAYER ---
-if not st.session_state.authenticated:
-    st.title("🔒 Secure Portal Access")
-    st.write("Please sign into your student or administrator account to launch the dashboard.")
-    
-    username_input = st.text_input("Username")
-    password_input = st.text_input("Password", type="password")
-    
-    if st.button("Secure Login"):
-        if username_input in USER_DB:
-            if hash_password(password_input) == USER_DB[username_input]:
-                st.session_state.authenticated = True
-                st.session_state.username = username_input
-                st.success("Access Granted! Loading your environment...")
-                st.rerun()
-            else:
-                st.error("Invalid credentials configuration.")
-        else:
-            st.error("Invalid credentials configuration.")
-            
-    st.stop()
-
-# --- PROTECTED APP ZONE ---
-st.sidebar.title(f"👤 Welcome, {st.session_state.username}")
-if st.sidebar.button("Secure Log Out"):
-    # Clear authentication and reset all cached tab states on logout
-    st.session_state.authenticated = False
-    st.session_state.username = None
-    st.session_state.generated_summary = None
-    st.session_state.generated_cbt = None
-    st.session_state.current_cbt_batch = None
-    st.rerun()
 
 st.title("📚 Your Ultimate Exam Survival Dashboard")
 st.write("Upload your lecture notes, slides, or PDFs, then choose how you want to conquer them.")
@@ -78,7 +27,7 @@ if "GEMINI_API_KEY_2" in st.secrets and st.secrets["GEMINI_API_KEY_2"]:
 if "GEMINI_API_KEY_3" in st.secrets and st.secrets["GEMINI_API_KEY_3"]:
     api_keys.append(st.secrets["GEMINI_API_KEY_3"])
 
-manual_key = st.sidebar.text_input("Backup API Key Entry", type="password")
+manual_key = st.sidebar.text_input("Backup API Key Entry (Optional)", type="password")
 if manual_key:
     api_keys.append(manual_key)
 
@@ -186,10 +135,8 @@ if uploaded_file:
                     Study Text Sections:
                     {safe_combined_text}
                     """
-                    # Save answer directly into State Memory
                     st.session_state.generated_summary = ask_gemini(api_key, prompt, dynamic_mode=True)
 
-        # If a summary exists in memory, keep rendering it on screen!
         if st.session_state.generated_summary:
             st.markdown(st.session_state.generated_summary)
 
@@ -244,11 +191,9 @@ if uploaded_file:
                     Study Text Section:
                     {selected_text}
                     """
-                    # Save both the question text and the selected batch name to memory
                     st.session_state.generated_cbt = ask_gemini(api_key, prompt, dynamic_mode=False)
                     st.session_state.current_cbt_batch = batch_selection
 
-        # Keep rendering the saved quiz if the user switches back, but clear it if they choose a different batch dropdown
         if st.session_state.generated_cbt and st.session_state.current_cbt_batch == batch_selection:
             st.markdown(st.session_state.generated_cbt)
 
