@@ -7,28 +7,19 @@ import random
 
 st.set_page_config(page_title="Ultimate Study Dashboard", layout="centered")
 
-# --- LUCIDE ICONS ENGINE SETUP ---
-# This injects the official Lucide script so the browser can render the beautiful minimalist icons
+# --- CUSTOM CSS FOR PERFECT ALIGNMENT ---
 st.markdown("""
-    <script src="https://unpkg.com/lucide@latest"></script>
-    <script>
-        // Tell Lucide to look at the page and convert all icon tags instantly
-        setTimeout(() => { lucide.createIcons(); }, 500);
-        // Keep checking if new tabs are clicked so icons load dynamically
-        setInterval(() => { lucide.createIcons(); }, 1500);
-    </script>
     <style>
-        .lucide-inline {
-            vertical-align: middle;
-            margin-right: 8px;
-            display: inline-block;
-            width: 20px;
-            height: 20px;
-        }
-        div.stButton > button {
+        /* Centers content structures and cleans up vertical text spacing */
+        .flex-container {
             display: flex;
             align-items: center;
-            justify-content: center;
+            gap: 12px;
+            margin-bottom: 10px;
+        }
+        .icon-svg {
+            color: #6D28D9; /* Clean subtle purple tint matching modern UIs */
+            flex-shrink: 0;
         }
     </style>
 """, unsafe_allow_html=True)
@@ -41,12 +32,17 @@ if "generated_cbt" not in st.session_state:
 if "current_cbt_batch" not in st.session_state:
     st.session_state.current_cbt_batch = None
 
-# --- TITLE WITH TRUE LUCIDE BOOK STACK ---
+# --- CORRECTED HEADER WITH INLINE LUCIDE BOOKSTACK ---
 st.markdown("""
-    <h1 style='display: flex; align-items: center;'>
-        <svg class='lucide-inline' xmlns='http://www.w3.org/2000/svg' width='40' height='40' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round' data-lucide='library'></svg>
-        Your Ultimate Exam Survival Dashboard
-    </h1>
+    <div class="flex-container">
+        <svg class="icon-svg" xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <path d="m16 6 4 14"/>
+            <path d="M12 6v14"/>
+            <path d="M8 8v12"/>
+            <path d="M4 4v16"/>
+        </svg>
+        <h1 style="margin: 0; padding: 0;">Your Ultimate Exam Survival Dashboard</h1>
+    </div>
 """, unsafe_allow_html=True)
 
 st.write("Upload your lecture notes, slides, or PDFs, then choose how you want to conquer them.")
@@ -136,12 +132,13 @@ if uploaded_file:
     with tab1:
         st.subheader("Tailored Multi-Mode Explanation Engine")
         
+        # --- FIXED DROPDOWN SELECTION OPTIONS USING CRISP TEXT DESCRIPTIONS ---
         explanation_mode = st.selectbox(
             "Choose Your Desired Explanation Persona:",
-            ["✨ Campus Buddy Mode (Student & Campus Analogies)",
+            ["🎓 Campus Buddy Mode (Student & Campus Analogies)",
              "🛣️ Street-Smart Analogy Mode (Practical, Everyday Logic & Logistics)", 
-             "🧠 Deep Technical Mode (Upper-Level Technical Rigor)", 
-             "🧸 Layman Mode (Explain Like I'm 5 Style)"]
+             "💻 Deep Technical Mode (Upper-Level Technical Rigor)", 
+             "😊 Layman Mode (Explain Like I'm 5 Style)"]
         )
         
         if st.button("🚀 Generate Tailored Summary"):
