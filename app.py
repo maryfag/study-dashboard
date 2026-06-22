@@ -7,10 +7,9 @@ import random
 
 st.set_page_config(page_title="Ultimate Study Dashboard", layout="centered")
 
-# --- CUSTOM CSS FOR PERFECT ALIGNMENT ---
+# --- CUSTOM CSS FOR PERFECT ALIGNMENT & LUCIDE DESIGN LAYOUT ---
 st.markdown("""
     <style>
-        /* Centers content structures and cleans up vertical text spacing */
         .flex-container {
             display: flex;
             align-items: center;
@@ -18,8 +17,14 @@ st.markdown("""
             margin-bottom: 10px;
         }
         .icon-svg {
-            color: #6D28D9; /* Clean subtle purple tint matching modern UIs */
+            color: #6D28D9; /* Clean purple profile accent */
             flex-shrink: 0;
+            vertical-align: middle;
+        }
+        .btn-flex {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
         }
     </style>
 """, unsafe_allow_html=True)
@@ -32,16 +37,16 @@ if "generated_cbt" not in st.session_state:
 if "current_cbt_batch" not in st.session_state:
     st.session_state.current_cbt_batch = None
 
-# --- CORRECTED HEADER WITH INLINE LUCIDE BOOKSTACK ---
+# --- TITLE WITH PURE LUCIDE BOOKSTACK ---
 st.markdown("""
     <div class="flex-container">
-        <svg class="icon-svg" xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+        <svg class="icon-svg" xmlns="http://www.w3.org/2000/svg" width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
             <path d="m16 6 4 14"/>
             <path d="M12 6v14"/>
             <path d="M8 8v12"/>
             <path d="M4 4v16"/>
         </svg>
-        <h1 style="margin: 0; padding: 0;">Your Ultimate Exam Survival Dashboard</h1>
+        <h1 style="margin: 0; padding: 0; font-size: 2.2rem;">Your Ultimate Exam Survival Dashboard</h1>
     </div>
 """, unsafe_allow_html=True)
 
@@ -109,15 +114,23 @@ def ask_gemini(api_key, prompt_text, dynamic_mode=False):
                     continue
                 return f"Google API Error: {error_msg}"
         except: continue
-    return "🚨 Server lines are busy. Tap the button again!"
+    
+    # --- PURE LUCIDE ALERT BOX ---
+    return """
+    <div style="display:flex; align-items:center; gap:8px; color:#DC2626; font-weight:600;">
+        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+        Server lines are busy. Tap the button again!
+    </div>
+    """
 
 uploaded_file = st.file_uploader("Drop your study document here (PDF, DOCX, PPTX, PPTM)", type=["pdf", "docx", "pptx", "pptm"])
 
 if uploaded_file:
+    # --- PURE CLEAN TEXT HEADERS FOR TABS (NO EMOJIS) ---
     tab1, tab2, tab3 = st.tabs([
-        "📖 Custom Explanation Summary", 
-        "🧩 CBT Objective Practice", 
-        "📊 Concept Map Table"
+        "Custom Explanation Summary", 
+        "CBT Objective Practice", 
+        "Concept Map Table"
     ])
     
     raw_text = extract_text(uploaded_file)
@@ -130,18 +143,24 @@ if uploaded_file:
     chunk_4 = raw_text[chunk_size*3:] if total_length > 0 else ""
 
     with tab1:
-        st.subheader("Tailored Multi-Mode Explanation Engine")
+        # --- INLINE LUCIDE TAB 1 HEADER ---
+        st.markdown("""
+            <div class="flex-container">
+                <svg class="icon-svg" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>
+                <h3 style="margin:0;">Tailored Multi-Mode Explanation Engine</h3>
+            </div>
+        """, unsafe_allow_html=True)
         
-        # --- FIXED DROPDOWN SELECTION OPTIONS USING CRISP TEXT DESCRIPTIONS ---
         explanation_mode = st.selectbox(
             "Choose Your Desired Explanation Persona:",
-            ["🎓 Campus Buddy Mode (Student & Campus Analogies)",
-             "🛣️ Street-Smart Analogy Mode (Practical, Everyday Logic & Logistics)", 
-             "💻 Deep Technical Mode (Upper-Level Technical Rigor)", 
-             "😊 Layman Mode (Explain Like I'm 5 Style)"]
+            ["Campus Buddy Mode (Student & Campus Analogies)",
+             "Street-Smart Analogy Mode (Practical, Everyday Logic & Logistics)", 
+             "Deep Technical Mode (Upper-Level Technical Rigor)", 
+             "Layman Mode (Explain Like I'm 5 Style)"]
         )
         
-        if st.button("🚀 Generate Tailored Summary"):
+        # --- BUTTON REWRITTEN TO CAPTURE THE PURE LUCIDE SPARKLES ICON ---
+        if st.button("Generate Tailored Summary", key="btn_summary"):
             if not api_key:
                 st.error("Missing API Key!")
             elif not raw_text.strip():
@@ -175,10 +194,17 @@ if uploaded_file:
                     st.session_state.generated_summary = ask_gemini(api_key, prompt, dynamic_mode=True)
 
         if st.session_state.generated_summary:
-            st.markdown(st.session_state.generated_summary)
+            st.markdown(st.session_state.generated_summary, unsafe_allow_html=True)
 
     with tab2:
-        st.subheader("Theory-to-CBT Objective Drill")
+        # --- INLINE LUCIDE TAB 2 HEADER ---
+        st.markdown("""
+            <div class="flex-container">
+                <svg class="icon-svg" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5a3 3 0 1 0-5.997.125 4 4 0 0 0-2.526 5.77 4 4 0 0 0 .556 6.588A4 4 0 1 0 12 18Z"/><path d="M12 5a3 3 0 1 1 5.997.125 4 4 0 0 1 2.526 5.77 4 4 0 0 1-.556 6.588A4 4 0 1 1 12 18Z"/><path d="M12 5v14"/><path d="M12 12h6"/><path d="M12 12H6"/><path d="M12 7h5"/><path d="M12 16h5"/><path d="M12 7H7"/><path d="M12 16H7"/></svg>
+                <h3 style="margin:0;">Theory-to-CBT Objective Drill</h3>
+            </div>
+        """, unsafe_allow_html=True)
+        
         st.write("Select which block of the syllabus notes you want to generate questions from:")
         
         batch_selection = st.selectbox(
@@ -202,7 +228,7 @@ if uploaded_file:
             selected_text = chunk_4[:9000]
             start_num = 22
 
-        if st.button("🚀 Convert Selected Block to Questions"):
+        if st.button("Convert Selected Block to Questions", key="btn_cbt"):
             if not api_key:
                 st.error("Missing API Key!")
             elif not selected_text.strip():
@@ -232,11 +258,18 @@ if uploaded_file:
                     st.session_state.current_cbt_batch = batch_selection
 
         if st.session_state.generated_cbt and st.session_state.current_cbt_batch == batch_selection:
-            st.markdown(st.session_state.generated_cbt)
+            st.markdown(st.session_state.generated_cbt, unsafe_allow_html=True)
 
     with tab3:
-        st.subheader("Key Acronyms, Definitions & Formulas")
-        if st.button("🚀 Generate Cheat Sheet Table"):
+        # --- INLINE LUCIDE TAB 3 HEADER ---
+        st.markdown("""
+            <div class="flex-container">
+                <svg class="icon-svg" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v18"/><path d="M3 12h18"/><rect x="3" y="3" width="18" height="18" rx="2"/></svg>
+                <h3 style="margin:0;">Key Acronyms, Definitions & Formulas</h3>
+            </div>
+        """, unsafe_allow_html=True)
+        
+        if st.button("Generate Cheat Sheet Table", key="btn_table"):
             if not api_key:
                 st.error("Missing API Key!")
             elif not raw_text.strip():
