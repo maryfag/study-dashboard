@@ -7,6 +7,32 @@ import random
 
 st.set_page_config(page_title="Ultimate Study Dashboard", layout="centered")
 
+# --- LUCIDE ICONS ENGINE SETUP ---
+# This injects the official Lucide script so the browser can render the beautiful minimalist icons
+st.markdown("""
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <script>
+        // Tell Lucide to look at the page and convert all icon tags instantly
+        setTimeout(() => { lucide.createIcons(); }, 500);
+        // Keep checking if new tabs are clicked so icons load dynamically
+        setInterval(() => { lucide.createIcons(); }, 1500);
+    </script>
+    <style>
+        .lucide-inline {
+            vertical-align: middle;
+            margin-right: 8px;
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+        }
+        div.stButton > button {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+    </style>
+""", unsafe_allow_html=True)
+
 # --- STATE MEMORY CORES: Keeps tabs from wiping out ---
 if "generated_summary" not in st.session_state:
     st.session_state.generated_summary = None
@@ -15,7 +41,14 @@ if "generated_cbt" not in st.session_state:
 if "current_cbt_batch" not in st.session_state:
     st.session_state.current_cbt_batch = None
 
-st.title("📚 Your Ultimate Exam Survival Dashboard")
+# --- TITLE WITH TRUE LUCIDE BOOK STACK ---
+st.markdown("""
+    <h1 style='display: flex; align-items: center;'>
+        <svg class='lucide-inline' xmlns='http://www.w3.org/2000/svg' width='40' height='40' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round' data-lucide='library'></svg>
+        Your Ultimate Exam Survival Dashboard
+    </h1>
+""", unsafe_allow_html=True)
+
 st.write("Upload your lecture notes, slides, or PDFs, then choose how you want to conquer them.")
 
 # --- SMART API KEY ROTATION SETUP ---
@@ -85,11 +118,10 @@ def ask_gemini(api_key, prompt_text, dynamic_mode=False):
 uploaded_file = st.file_uploader("Drop your study document here (PDF, DOCX, PPTX, PPTM)", type=["pdf", "docx", "pptx", "pptm"])
 
 if uploaded_file:
-    # --- HERE ARE THE CLEAN MINIMALIST ICONS ---
     tab1, tab2, tab3 = st.tabs([
-        " Custom Explanation Summary", 
-        " CBT Objective Practice", 
-        " Concept Map Table"
+        "📖 Custom Explanation Summary", 
+        "🧩 CBT Objective Practice", 
+        "📊 Concept Map Table"
     ])
     
     raw_text = extract_text(uploaded_file)
@@ -149,7 +181,7 @@ if uploaded_file:
             st.markdown(st.session_state.generated_summary)
 
     with tab2:
-        st.subheader("🤖 Theory-to-CBT Objective Drill")
+        st.subheader("Theory-to-CBT Objective Drill")
         st.write("Select which block of the syllabus notes you want to generate questions from:")
         
         batch_selection = st.selectbox(
