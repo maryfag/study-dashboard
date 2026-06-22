@@ -101,7 +101,8 @@ if uploaded_file:
         
         explanation_mode = st.selectbox(
             "Choose Your Desired Explanation Persona:",
-            ["✨ Campus Buddy Mode (Level 200 Analogy Style)", 
+            ["✨ Campus Buddy Mode (Student & Campus Analogies)",
+             "🛣️ Street-Smart Analogy Mode (Practical, Everyday Logic & Logistics)", 
              "🧠 Deep Technical Mode (Upper-Level Technical Rigor)", 
              "🧸 Layman Mode (Explain Like I'm 5 Style)"]
         )
@@ -121,7 +122,9 @@ if uploaded_file:
                     )
                     
                     if "Campus Buddy" in explanation_mode:
-                        style_prompt = "You are a relatable university peer tutor. Use simple, engaging, and funny student/campus analogies (like hostel porters for firewalls) to explain everything simply. Highlight key terms in **bold**."
+                        style_prompt = "You are a relatable university peer tutor. Use simple, engaging, and funny student/campus analogies (like hostel porters or campus gates) to explain everything simply. Highlight key terms in **bold**."
+                    elif "Street-Smart" in explanation_mode:
+                        style_prompt = "You are a highly practical, street-smart operations mentor. Explain the concepts using crisp, real-world analogies based on everyday logic, physical logistics, spotting counterfeits, managing daily physical operations, or coordinating delivery logistics. Avoid corporate boardroom slangs and avoid campus-specific university terms. Make it punchy and clear for anyone living in the real world. Highlight key terms in **bold**."
                     elif "Deep Technical" in explanation_mode:
                         style_prompt = "You are a senior technical enterprise architect. Break down the content using exact, rigorous academic definitions, engineering mechanics, and precise technical infrastructure logic. Highlight key terms in **bold**."
                     else:
