@@ -85,7 +85,12 @@ def ask_gemini(api_key, prompt_text, dynamic_mode=False):
 uploaded_file = st.file_uploader("Drop your study document here (PDF, DOCX, PPTX, PPTM)", type=["pdf", "docx", "pptx", "pptm"])
 
 if uploaded_file:
-    tab1, tab2, tab3 = st.tabs(["✨ Custom Explanation Summary", "🧠 CBT Objective Practice", "📋 Concept Map Table"])
+    # --- HERE ARE THE CLEAN MINIMALIST ICONS ---
+    tab1, tab2, tab3 = st.tabs([
+        " Custom Explanation Summary", 
+        " CBT Objective Practice", 
+        " Concept Map Table"
+    ])
     
     raw_text = extract_text(uploaded_file)
     total_length = len(raw_text) if raw_text else 0
