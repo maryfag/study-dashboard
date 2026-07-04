@@ -5,7 +5,7 @@ from pptx import Presentation
 import requests
 import random
 
-st.set_page_config(page_title="Ultimate Study Dashboard", layout="wide") # Switched to wide layout to support the new side-by-side view beautifully
+st.set_page_config(page_title="Ultimate Study Dashboard", layout="wide") 
 
 # --- CUSTOM CSS FOR PERFECT ALIGNMENT & LUCIDE DESIGN LAYOUT ---
 st.markdown("""
@@ -30,13 +30,4 @@ st.markdown("""
             background-color: rgba(255, 255, 255, 0.05);
             padding: 15px;
             border-radius: 8px;
-            border: 1px solid rgba(255, 255, 255, 0.1);
-            margin-bottom: 10px;
-        }
-    </style>
-""", unsafe_allow_html=True)
-
-# --- STATE MEMORY CORES: Keeps tabs from wiping out ---
-if "generated_summary" not in st.session_state:
-    st.session_state.generated_summary = None
-if "generated_analogy
+            border: 1px solid rgba(255, 255, 255,
