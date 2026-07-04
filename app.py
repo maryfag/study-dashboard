@@ -7,7 +7,7 @@ import random
 
 st.set_page_config(page_title="Ultimate Study Dashboard", layout="wide") 
 
-# --- CUSTOM CSS FOR PERFECT ALIGNMENT & LUCIDE DESIGN LAYOUT ---
+# --- CUSTOM CSS FOR PERFECT ALIGNMENT ---
 st.markdown("""
 <style>
     .flex-container {
@@ -21,11 +21,6 @@ st.markdown("""
         flex-shrink: 0;
         vertical-align: middle;
     }
-    .btn-flex {
-        display: inline-flex;
-        align-items: center;
-        gap: 8px;
-    }
     .workspace-card {
         background-color: rgba(255, 255, 255, 0.05);
         padding: 15px;
@@ -36,7 +31,7 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# --- STATE MEMORY CORES: Keeps tabs from wiping out ---
+# --- STATE MEMORY CORES: Total protection against blank screen re-runs ---
 if "generated_summary" not in st.session_state:
     st.session_state.generated_summary = None
 if "generated_analogy" not in st.session_state:
@@ -45,8 +40,10 @@ if "generated_cbt" not in st.session_state:
     st.session_state.generated_cbt = None
 if "current_cbt_batch" not in st.session_state:
     st.session_state.current_cbt_batch = None
-if "last_action" not in st.session_state:
-    st.session_state.last_action = None
+if "omni_bar_response" not in st.session_state:
+    st.session_state.omni_bar_response = None
+if "last_processed_query" not in st.session_state:
+    st.session_state.last_processed_query = None
 
 # --- TITLE WITH PURE LUCIDE BOOKSTACK ---
 st.markdown("""
@@ -120,18 +117,10 @@ def ask_gemini(api_key, prompt_text, dynamic_mode=False):
             if 'candidates' in response_json and response_json['candidates']:
                 return response_json['candidates'][0]['content']['parts'][0]['text']
             elif 'error' in response_json:
-                error_msg = response_json['error']['message']
-                if "demand" in error_msg.lower() or "quota" in error_msg.lower() or "not found" in error_msg.lower():
-                    continue
-                return f"Google API Error: {error_msg}"
+                continue
         except: continue
     
-    return """
-    <div style="display:flex; align-items:center; gap:8px; color:#DC2626; font-weight:600;">
-        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
-        Server lines are busy. Tap the button again!
-    </div>
-    """
+    return "Server lines are busy. Tap the button again!"
 
 uploaded_file = st.file_uploader("Drop your study document here (PDF, DOCX, PPTX, PPTM)", type=["pdf", "docx", "pptx", "pptm"])
 
@@ -145,43 +134,35 @@ if uploaded_file:
     chunk_3 = raw_text[chunk_size*2:chunk_size*3] if total_length > 0 else ""
     chunk_4 = raw_text[chunk_size*3:] if total_length > 0 else ""
 
-    # --- COMMAND PALETTE UTILITY BAR ---
-    st.markdown("### ⚡ Command Palette Shortcuts")
-    shortcut_input = st.text_input("Type a shortcut letter (e.g., 'G' for Generate, 'E' for Extract Deadlines, 'R' for Risk, 'C' for Metrics Calculation)...", placeholder="Type a single letter parameter...")
-    
-    master_shortcuts = [
-        {"trigger": "G", "label": "Execute Split-View Summary & Analogy Map", "type": "summary"},
-        {"trigger": "E", "label": "Extract Actions, Requirements & Corporate Deadlines", "type": "extract"},
-        {"trigger": "R", "label": "Analyze Strategic Risks & System Logical Flaws", "type": "risk"},
-        {"trigger": "C", "label": "Run Instant Local Document Word Counts", "type": "count"}
-    ]
+    # --- TRUE AI OMNI-BAR COMMAND PALETTE ---
+    st.markdown("### ⚡ AI Omni-Bar Command Palette")
+    shortcut_input = st.text_input("Ask Gemini anything about this document (e.g., 'Extract the major risks', 'Give me a list of terms')...", placeholder="Type your dynamic query and press Enter...")
     
     if shortcut_input:
-        matches = [s for s in master_shortcuts if s["trigger"].lower() == shortcut_input.strip().lower()[:1]]
-        if matches:
-            st.write("🎯 Matching Instant Commands:")
-            for item in matches:
-                if st.button(item["label"], key=f"macro_{item['type']}"):
-                    st.session_state.last_action = item["type"]
-        else:
-            st.info("No matching built-in commands found for that specific letter shortcut. Try 'G', 'E', 'R', or 'C'.")
+        cleaned_query = shortcut_input.strip()
+        # Fire API request only if the query has changed to avoid double execution on re-runs
+        if cleaned_query != st.session_state.last_processed_query:
+            if not api_key:
+                st.error("Missing API Key!")
+            else:
+                with st.spinner("Gemini is searching and analyzing the document layout..."):
+                    context_sample = f"[Document Excerpt Section]\n{chunk_1[:5000]}\n{chunk_2[:3000]}"
+                    omni_prompt = f"""
+                    You are a real-time smart search engine assistant for this document. 
+                    Answering the following custom user query based strictly on the document context provided below.
+                    
+                    User Query: {cleaned_query}
+                    
+                    Document Context:
+                    {context_sample}
+                    """
+                    st.session_state.omni_bar_response = ask_gemini(api_key, omni_prompt, dynamic_mode=True)
+                    st.session_state.last_processed_query = cleaned_query
 
-    # Command Execution Blocks
-    if st.session_state.last_action == "count":
-        st.success("Calculations complete (Processed locally without utilizing token quotas).")
-        st.metric(label="Total String Characters", value=total_length)
-        st.metric(label="Total Extracted Words", value=len(raw_text.split()))
-        st.session_state.last_action = None
-    elif st.session_state.last_action == "extract":
-        with st.spinner("Extracting parameters and timelines..."):
-            prompt = f"Analyze this text and isolate all required tasks, specifications, milestones, and deadlines. Present as an actionable list:\n\n{chunk_1[:8000]}"
-            st.markdown(ask_gemini(api_key, prompt))
-            st.session_state.last_action = None
-    elif st.session_state.last_action == "risk":
-        with st.spinner("Scanning for anomalies and conceptual flaws..."):
-            prompt = f"Identify hidden design gaps, legal/compliance risks, or technical vulnerabilities in this documentation:\n\n{chunk_1[:8000]}"
-            st.markdown(ask_gemini(api_key, prompt))
-            st.session_state.last_action = None
+    # Display the live AI Omni-Bar results persistently
+    if st.session_state.omni_bar_response:
+        st.markdown('<div class="workspace-card"><h4>🔍 AI Omni-Bar Search Result</h4></div>', unsafe_allow_html=True)
+        st.markdown(st.session_state.omni_bar_response)
 
     st.markdown("---")
 
@@ -209,8 +190,7 @@ if uploaded_file:
              "Layman Mode (Explain Like I'm 5 Style)"]
         )
         
-        if st.button("Generate Tailored Summary", key="btn_summary") or st.session_state.last_action == "summary":
-            st.session_state.last_action = None
+        if st.button("Generate Tailored Summary", key="btn_summary"):
             if not api_key:
                 st.error("Missing API Key!")
             elif not raw_text.strip():
@@ -224,11 +204,7 @@ if uploaded_file:
                         f"[Advanced / Concluding Section]\n{chunk_4[:3500]}"
                     )
                     
-                    ground_truth_prompt = f"""
-                    You are an exact, literal translation processor. Extract and summarize the strict facts, core technical configurations, definitions, and actual text rules present in this document. Do not use creative shortcuts. 
-                    
-                    Text:\n{safe_combined_text}
-                    """
+                    ground_truth_prompt = f"You are an exact, literal translation processor. Extract and summarize the strict facts, core technical configurations, definitions, and actual text rules present in this document. Do not use creative shortcuts. Text:\n{safe_combined_text}"
                     
                     if "Campus Buddy" in explanation_mode:
                         style_prompt = "You are a relatable university peer tutor. Use simple, engaging, and funny student/campus analogies (like hostel porters or campus gates) to explain everything simply. Highlight key terms in **bold**."
@@ -237,126 +213,4 @@ if uploaded_file:
                     elif "Corporate Decoupler" in explanation_mode:
                         style_prompt = "You are a clean communicator stripping away complex corporate autopilot jargon, buzzwords, or intense contractual terminology. Re-evaluate the document and write out its practical mechanism cleanly using general real-world metaphors. Highlight key terms in **bold**."
                     elif "Deep Technical" in explanation_mode:
-                        style_prompt = "You are a senior technical enterprise architect. Break down the content using exact, rigorous academic definitions, engineering mechanics, and precise technical infrastructure logic. Highlight key terms in **bold**."
-                    else:
-                        style_prompt = "You are explaining this to a complete novice. Use ultra-simplified, everyday non-tech visual elements. Avoid any advanced technical concepts or assumptions of prior engineering knowledge. Highlight key terms in **bold**."
-                    
-                    analogy_prompt = f"""
-                    You are an expert personalized summary processor. 
-                    {style_prompt}
-                    Ensure your explanation covers the entire document provided below sequentially from start to finish.
-                    
-                    Study Text Sections:
-                    {safe_combined_text}
-                    """
-                    
-                    st.session_state.generated_summary = ask_gemini(api_key, ground_truth_prompt, dynamic_mode=False)
-                    st.session_state.generated_analogy = ask_gemini(api_key, analogy_prompt, dynamic_mode=True)
-
-        # --- SIDE-BY-SIDE DUAL VIEW CARD LAYOUT ---
-        if st.session_state.generated_summary and st.session_state.generated_analogy:
-            col1, col2 = st.columns(2)
-            with col1:
-                st.markdown('<div class="workspace-card"><h4>📖 Grounded Truth (Exact Documentation Content)</h4></div>', unsafe_allow_html=True)
-                st.markdown(st.session_state.generated_summary, unsafe_allow_html=True)
-            with col2:
-                st.markdown('<div class="workspace-card"><h4>💡 Vibe Check (Personalized Analogy Breakdown)</h4></div>', unsafe_allow_html=True)
-                st.markdown(st.session_state.generated_analogy, unsafe_allow_html=True)
-
-    with tab2:
-        st.markdown("""
-            <div class="flex-container">
-                <svg class="icon-svg" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5a3 3 0 1 0-5.997.125 4 4 0 0 0-2.526 5.77 4 4 0 0 0 .556 6.588A4 4 0 1 0 12 18Z"/><path d="M12 5a3 3 0 1 1 5.997.125 4 4 0 0 1 2.526 5.77 4 4 0 0 1-.556 6.588A4 4 0 1 1 12 18Z"/><path d="M12 5v14"/><path d="M12 12h6"/><path d="M12 12H6"/><path d="M12 7h5"/><path d="M12 16h5"/><path d="M12 7H7"/><path d="M12 16H7"/></svg>
-                <h3 style="margin:0;">Theory-to-CBT Objective Drill</h3>
-            </div>
-        """, unsafe_allow_html=True)
-        
-        st.write("Select which block of the syllabus notes you want to generate questions from:")
-        
-        batch_selection = st.selectbox(
-            "Choose Target Study Block:",
-            ["Batch 1: Introduction & Foundation Concepts", 
-             "Batch 2: Core Methodologies & Process Details", 
-             "Batch 3: Deep Technical Content", 
-             "Batch 4: Advanced Scenarios & Conclusions"]
-        )
-        
-        if batch_selection.startswith("Batch 1"):
-            selected_text = chunk_1[:9000]
-            start_num = 1
-        elif batch_selection.startswith("Batch 2"):
-            selected_text = chunk_2[:9000]
-            start_num = 8
-        elif batch_selection.startswith("Batch 3"):
-            selected_text = chunk_3[:9000]
-            start_num = 15
-        else:
-            selected_text = chunk_4[:9000]
-            start_num = 22
-
-        if st.button("Convert Selected Block to Questions", key="btn_cbt"):
-            if not api_key:
-                st.error("Missing API Key!")
-            elif not selected_text.strip():
-                st.error("This segment of the document doesn't contain enough text to extract data.")
-            else:
-                with st.spinner(f"Mining questions starting from Q{start_num} for this specific text block..."):
-                    prompt = f"""
-                    You are a strict Computer Based Test (CBT) examiner. 
-                    Analyze the uploaded text slice and transform the theoretical concepts into highly practical multiple-choice objective questions.
-                    You must output exactly 7 to 8 distinct multiple-choice questions.
-                    You MUST start numbering your output starting strictly from Question {start_num}.
-                    
-                    STRICT FORMATTING MANDATE: Every single question must have exactly 4 options (A, B, C, D).
-                    Follow this exact structure for every item:
-                    
-                    **Question X: [Insert question here]**
-                    A) [Option A]
-                    B) [Option B]
-                    C) [Option C]
-                    D) [Option D]
-                    * 👉 **Correct Answer:** || [State correct letter, followed by 1-sentence explanation] ||
-                    
-                    Study Text Section:
-                    {selected_text}
-                    """
-                    st.session_state.generated_cbt = ask_gemini(api_key, prompt, dynamic_mode=False)
-                    st.session_state.current_cbt_batch = batch_selection
-
-        if st.session_state.generated_cbt and st.session_state.current_cbt_batch == batch_selection:
-            st.markdown(st.session_state.generated_cbt, unsafe_allow_html=True)
-
-    with tab3:
-        st.markdown("""
-            <div class="flex-container">
-                <svg class="icon-svg" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v18"/><path d="M3 12h18"/><rect x="3" y="3" width="18" height="18" rx="2"/></svg>
-                <h3 style="margin:0;">Key Acronyms, Definitions & Formulas</h3>
-            </div>
-        """, unsafe_allow_html=True)
-        
-        if st.button("Generate Cheat Sheet Table", key="btn_table"):
-            if not api_key:
-                st.error("Missing API Key!")
-            elif not raw_text.strip():
-                st.error("Could not extract any text from this document.")
-            else:
-                with st.spinner("Extracting terms and formulas from the entire document..."):
-                    full_syllabus_context = (
-                        f"[Section 1: Foundations]\n{chunk_1[:3000]}\n\n"
-                        f"[Section 2: Core Details]\n{chunk_2[:3000]}\n\n"
-                        f"[Section 3: Deep Technical]\n{chunk_3[:3000]}\n\n"
-                        f"[Section 4: Advanced/Conclusion]\n{chunk_4[:3000]}"
-                    )
-                    
-                    prompt = f"""
-                    Analyze the following study material and act as a professional summary engine.
-                    Extract every single critical network protocol, acronym, core cybersecurity definition, concept, and formula into a clean, comprehensive summary grid.
-                    You MUST format your entire output as a valid Markdown table with exactly two columns. Output ONLY the table itself.
-                    
-                    | Term / Concept / Acronym | High-Yield Summary & Core Meaning |
-                    | :--- | :--- |
-                    
-                    Extract at least 12-18 foundational and advanced elements:
-                    {full_syllabus_context}
-                    """
-                    st.markdown(ask_gemini(api_key, prompt, dynamic_mode=False))
+                        style_
