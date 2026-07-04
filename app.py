@@ -8,131 +8,53 @@ import json
 import re
 import io
 
-APP_NAME = "PrepDeck"  # rename here if you want a different app name
+APP_NAME = "DocDigest"
 
 st.set_page_config(page_title=APP_NAME, layout="wide")
 
 # ============================================================
-# DARK "NOTION / LINEAR" THEME
+# LIGHT THEME, PURPLE ACCENT (kept close to the original look)
 # ============================================================
 st.markdown("""
 <style>
-    :root {
-        --bg: #0E0F13;
-        --surface: #17191F;
-        --surface-hover: #1D2028;
-        --border: rgba(255,255,255,0.08);
-        --text: #E6E8EC;
-        --muted: #9AA0AC;
-        --accent: #818CF8;
-        --accent-soft: rgba(129,140,248,0.15);
-    }
-
-    .stApp {
-        background-color: var(--bg);
-        color: var(--text);
-    }
-
-    section.main > div {
-        padding-top: 1.5rem;
-    }
-
-    h1, h2, h3, h4, h5, p, span, label, div {
-        color: var(--text);
-    }
-
-    .subtitle {
-        color: var(--muted);
-        font-size: 0.95rem;
-        margin-top: -6px;
-        margin-bottom: 1.2rem;
-    }
-
     .flex-container {
         display: flex;
         align-items: center;
         gap: 12px;
-        margin-bottom: 4px;
+        margin-bottom: 10px;
     }
     .icon-svg {
-        color: var(--accent);
+        color: #6D28D9;
         flex-shrink: 0;
         vertical-align: middle;
     }
-
     .workspace-card {
-        background-color: var(--surface);
-        padding: 16px 18px;
-        border-radius: 10px;
-        border: 1px solid var(--border);
+        background-color: rgba(109, 40, 217, 0.05);
+        padding: 18px 20px;
+        border-radius: 8px;
+        border: 1px solid rgba(109, 40, 217, 0.15);
         margin-bottom: 12px;
     }
-
     .memo-card {
-        background-color: var(--surface);
+        background-color: rgba(109, 40, 217, 0.05);
         padding: 18px 20px;
-        border-radius: 10px;
-        border: 1px solid var(--border);
+        border-radius: 8px;
+        border: 1px solid rgba(109, 40, 217, 0.15);
         height: 100%;
     }
     .memo-card h4 {
         margin-top: 0;
-        color: var(--accent);
-        font-size: 0.95rem;
-        text-transform: uppercase;
-        letter-spacing: 0.04em;
+        color: #6D28D9;
     }
-
-    .palette-wrap {
-        background-color: var(--surface);
-        border: 1px solid var(--border);
-        border-radius: 12px;
-        padding: 14px 16px 6px 16px;
-        margin-bottom: 16px;
+    .subtitle {
+        color: #6b7280;
+        margin-top: -8px;
+        margin-bottom: 1.2rem;
     }
-
-    /* Streamlit widget overrides */
-    .stTextInput > div > div > input,
-    .stTextArea textarea {
-        background-color: var(--surface-hover) !important;
-        color: var(--text) !important;
-        border: 1px solid var(--border) !important;
-        border-radius: 8px !important;
-    }
-
-    .stButton > button {
-        background-color: var(--accent-soft);
-        color: var(--accent);
-        border: 1px solid rgba(129,140,248,0.35);
-        border-radius: 8px;
-        font-weight: 500;
-    }
-    .stButton > button:hover {
-        background-color: var(--accent);
-        color: #0E0F13;
-        border: 1px solid var(--accent);
-    }
-
-    .stTabs [data-baseweb="tab-list"] {
-        gap: 4px;
-        border-bottom: 1px solid var(--border);
-    }
-    .stTabs [data-baseweb="tab"] {
-        background-color: transparent;
-        color: var(--muted);
-        border-radius: 8px 8px 0 0;
-    }
-    .stTabs [aria-selected="true"] {
-        color: var(--accent) !important;
-        border-bottom: 2px solid var(--accent) !important;
-    }
-
-    .stRadio label, .stSelectbox label, .stSlider label {
-        color: var(--muted) !important;
-    }
-
-    hr {
-        border-color: var(--border) !important;
+    section[data-testid="stSidebar"] .stButton > button {
+        width: 100%;
+        text-align: left;
+        border-radius: 6px;
     }
 </style>
 """, unsafe_allow_html=True)
@@ -141,58 +63,18 @@ st.markdown("""
 # SESSION STATE
 # ============================================================
 defaults = {
-    "generated_notes": None,
-    "generated_summary": None,
+    "generated_sections": None,
+    "generated_mode_label": None,
     "generated_cbt": None,
     "cbt_user_answers": {},
     "cbt_submitted": False,
     "generated_concept_map": None,
-    "omni_bar_response": None,
-    "last_processed_query": None,
     "chosen_api_key": None,
-    "palette_result": None,
-    "palette_result_type": None,
+    "active_view": None,  # "analogy" | "quiz" | "map"
 }
 for k, v in defaults.items():
     if k not in st.session_state:
         st.session_state[k] = v
-
-# ============================================================
-# HEADER
-# ============================================================
-st.markdown(f"""
-    <div class="flex-container">
-        <svg class="icon-svg" xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-            <path d="m16 6 4 14"/>
-            <path d="M12 6v14"/>
-            <path d="M8 8v12"/>
-            <path d="M4 4v16"/>
-        </svg>
-        <h1 style="margin: 0; padding: 0; font-size: 2rem;">{APP_NAME}</h1>
-    </div>
-    <div class="subtitle">Upload a document. Search a command. Study faster.</div>
-""", unsafe_allow_html=True)
-
-# ============================================================
-# API KEY SETUP (chosen once per session, not re-rolled every rerun)
-# ============================================================
-api_keys = []
-if "GEMINI_API_KEY_1" in st.secrets and st.secrets["GEMINI_API_KEY_1"]:
-    api_keys.append(st.secrets["GEMINI_API_KEY_1"])
-if "GEMINI_API_KEY_2" in st.secrets and st.secrets["GEMINI_API_KEY_2"]:
-    api_keys.append(st.secrets["GEMINI_API_KEY_2"])
-if "GEMINI_API_KEY_3" in st.secrets and st.secrets["GEMINI_API_KEY_3"]:
-    api_keys.append(st.secrets["GEMINI_API_KEY_3"])
-
-manual_key = st.sidebar.text_input("Backup API Key Entry (Optional)", type="password")
-
-if manual_key:
-    api_key = manual_key
-else:
-    if st.session_state.chosen_api_key is None and api_keys:
-        st.session_state.chosen_api_key = random.choice(api_keys)
-    api_key = st.session_state.chosen_api_key
-
 
 # ============================================================
 # CORE HELPERS
@@ -269,11 +151,11 @@ STYLE_PROMPTS = {
 }
 
 MODE_LABELS = {
-    "buddy": "Campus Buddy Mode",
-    "street": "Street-Smart Analogy Mode",
-    "corporate": "Corporate Decoupler Mode",
-    "technical": "Deep Technical Mode",
-    "layman": "Layman Mode",
+    "buddy": "Campus Buddy",
+    "street": "Street-Smart",
+    "corporate": "Corporate Decoupler",
+    "technical": "Deep Technical",
+    "layman": "Layman / ELI5",
 }
 
 
@@ -287,20 +169,30 @@ def build_document_context(chunks):
 
 
 def generate_notes_and_analogy(api_key, chunks, mode_key):
-    """One API call that returns literal notes + styled analogy as JSON,
-    so the two side-by-side memory cards always come from the same source pass."""
+    """Breaks the document into topic-sized sections and returns, for each section,
+    the literal note AND its matching analogy — so they can be rendered as paired
+    rows instead of two unrelated blocks of text."""
     doc_context = build_document_context(chunks)
     style_prompt = STYLE_PROMPTS[mode_key]
     prompt = f"""
-    You will produce two things from the document text below, and return them as ONLY a raw JSON object
-    (no markdown fences, no commentary), in this exact schema:
+    Break the document below into 5-9 logical topic sections (definitions, rules,
+    processes, configurations — whatever the natural divisions are).
 
-    {{
-      "literal_notes": "A strict, literal, factual bullet-style summary of the document: exact definitions, configurations, rules, and technical terms. No analogies, no creative language. Use markdown bullet points.",
-      "styled_explanation": "The same content re-explained in a different style, described below."
-    }}
+    For EACH section, produce a matched pair: the literal factual note, and the
+    analogy explanation of that SAME piece of content. They must correspond to
+    each other one-to-one — do not summarize the whole document twice separately.
 
-    Style for "styled_explanation": {style_prompt}
+    Respond with ONLY a raw JSON array, no markdown fences, no commentary, in this
+    exact schema:
+    [
+      {{
+        "topic": "short section title, e.g. 'Definition of X' or 'Rule for Y'",
+        "literal_note": "Strict, literal, factual explanation of this section only: exact definitions, configurations, or rules. No analogies. 1-3 sentences or a short bullet list.",
+        "analogy": "The SAME section re-explained using the style below. 1-3 sentences."
+      }}
+    ]
+
+    Style for "analogy": {style_prompt}
 
     Document Text:
     {doc_context}
@@ -356,284 +248,200 @@ def generate_concept_map(api_key, chunks):
 
 
 # ============================================================
-# FILE UPLOAD
+# LEFT SIDEBAR — everything is an instruction/control, clustered together
 # ============================================================
-uploaded_file = st.file_uploader("Drop your study document here (PDF, DOCX, PPTX, PPTM)", type=["pdf", "docx", "pptx", "pptm"])
+with st.sidebar:
+    st.markdown(f"""
+        <div class="flex-container">
+            <svg class="icon-svg" xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                <path d="m16 6 4 14"/><path d="M12 6v14"/><path d="M8 8v12"/><path d="M4 4v16"/>
+            </svg>
+            <h2 style="margin:0; font-size:1.4rem;">{APP_NAME}</h2>
+        </div>
+    """, unsafe_allow_html=True)
+    st.caption("Upload a document, then run an action below.")
 
-if uploaded_file:
-    file_bytes = uploaded_file.getvalue()
-    raw_text = extract_text(file_bytes, uploaded_file.name)
-    total_length = len(raw_text) if raw_text else 0
-    chunk_size = max(1, total_length // 4)
-    chunks = [
-        raw_text[0:chunk_size] if total_length > 0 else "",
-        raw_text[chunk_size:chunk_size * 2] if total_length > 0 else "",
-        raw_text[chunk_size * 2:chunk_size * 3] if total_length > 0 else "",
-        raw_text[chunk_size * 3:] if total_length > 0 else "",
-    ]
+    uploaded_file = st.file_uploader("Upload document", type=["pdf", "docx", "pptx", "pptm"])
 
-    # ============================================================
-    # COMMAND PALETTE — type to filter preset macros
-    # ============================================================
-    st.markdown('<div class="palette-wrap">', unsafe_allow_html=True)
-    st.markdown("**⌘ Command Palette** — type to filter actions (e.g. 'quiz', 'map', 'buddy', 'technical')")
+    # API key setup (chosen once per session)
+    api_keys = []
+    if "GEMINI_API_KEY_1" in st.secrets and st.secrets["GEMINI_API_KEY_1"]:
+        api_keys.append(st.secrets["GEMINI_API_KEY_1"])
+    if "GEMINI_API_KEY_2" in st.secrets and st.secrets["GEMINI_API_KEY_2"]:
+        api_keys.append(st.secrets["GEMINI_API_KEY_2"])
+    if "GEMINI_API_KEY_3" in st.secrets and st.secrets["GEMINI_API_KEY_3"]:
+        api_keys.append(st.secrets["GEMINI_API_KEY_3"])
 
-    palette_query = st.text_input(
-        "command_palette",
-        placeholder="Search a command...",
-        label_visibility="collapsed",
-        key="palette_input"
-    )
-
-    PRESETS = [
-        {"id": "quiz", "label": "📝 Quiz me (CBT practice)", "keywords": ["quiz", "cbt", "test", "practice", "question"]},
-        {"id": "map", "label": "🧠 Build a concept map", "keywords": ["map", "concept", "relationship"]},
-        {"id": "buddy", "label": "🎓 Explain it — Campus Buddy", "keywords": ["buddy", "campus", "student"]},
-        {"id": "street", "label": "🏙️ Explain it — Street-Smart", "keywords": ["street", "practical", "real world"]},
-        {"id": "corporate", "label": "🏢 Explain it — Corporate Decoupler", "keywords": ["corporate", "jargon", "business"]},
-        {"id": "technical", "label": "🔬 Explain it — Deep Technical", "keywords": ["technical", "deep", "expert", "rigor"]},
-        {"id": "layman", "label": "🍼 Explain it — Layman / ELI5", "keywords": ["layman", "eli5", "simple", "beginner"]},
-    ]
-
-    q = palette_query.strip().lower()
-    if q:
-        matches = [p for p in PRESETS if q in p["label"].lower() or any(q in kw for kw in p["keywords"])]
+    manual_key = st.text_input("Backup API Key (optional)", type="password")
+    if manual_key:
+        api_key = manual_key
     else:
-        matches = PRESETS
+        if st.session_state.chosen_api_key is None and api_keys:
+            st.session_state.chosen_api_key = random.choice(api_keys)
+        api_key = st.session_state.chosen_api_key
 
-    cols_per_row = 4
-    for row_start in range(0, len(matches), cols_per_row):
-        row_items = matches[row_start:row_start + cols_per_row]
-        cols = st.columns(cols_per_row)
-        for col, preset in zip(cols, row_items):
+    raw_text = ""
+    chunks = ["", "", "", ""]
+
+    if uploaded_file:
+        file_bytes = uploaded_file.getvalue()
+        raw_text = extract_text(file_bytes, uploaded_file.name)
+        total_length = len(raw_text) if raw_text else 0
+        chunk_size = max(1, total_length // 4)
+        chunks = [
+            raw_text[0:chunk_size] if total_length > 0 else "",
+            raw_text[chunk_size:chunk_size * 2] if total_length > 0 else "",
+            raw_text[chunk_size * 2:chunk_size * 3] if total_length > 0 else "",
+            raw_text[chunk_size * 3:] if total_length > 0 else "",
+        ]
+
+        st.markdown("---")
+        st.markdown("**Quiz & Concepts**")
+
+        if st.button("📝  Quiz me"):
+            if not api_key:
+                st.error("Missing API Key!")
+            elif not raw_text.strip():
+                st.error("Could not extract any text from this document.")
+            else:
+                with st.spinner("Writing quiz questions..."):
+                    parsed = generate_quiz(api_key, chunks, 5)
+                    if parsed:
+                        st.session_state.generated_cbt = parsed
+                        st.session_state.cbt_user_answers = {}
+                        st.session_state.cbt_submitted = False
+                        st.session_state.active_view = "quiz"
+                    else:
+                        st.error("Couldn't generate questions — try again.")
+
+        if st.button("🧠  Concept map"):
+            if not api_key:
+                st.error("Missing API Key!")
+            elif not raw_text.strip():
+                st.error("Could not extract any text from this document.")
+            else:
+                with st.spinner("Mapping key concepts..."):
+                    parsed = generate_concept_map(api_key, chunks)
+                    if parsed:
+                        st.session_state.generated_concept_map = parsed
+                        st.session_state.active_view = "map"
+                    else:
+                        st.error("Couldn't generate a concept map — try again.")
+
+        st.markdown("---")
+        st.markdown("**Analogy** — pick a style")
+
+        # A row of analogy-style options, all visible together (no dropdown)
+        mode_row_1 = st.columns(2)
+        mode_row_2 = st.columns(2)
+        mode_row_3 = st.columns(1)
+        mode_buttons = [
+            (mode_row_1[0], "buddy"),
+            (mode_row_1[1], "street"),
+            (mode_row_2[0], "corporate"),
+            (mode_row_2[1], "technical"),
+            (mode_row_3[0], "layman"),
+        ]
+        for col, mode_key in mode_buttons:
             with col:
-                if st.button(preset["label"], key=f"preset_{preset['id']}"):
+                if st.button(MODE_LABELS[mode_key], key=f"mode_{mode_key}"):
                     if not api_key:
                         st.error("Missing API Key!")
                     elif not raw_text.strip():
                         st.error("Could not extract any text from this document.")
                     else:
-                        with st.spinner("Running command..."):
-                            if preset["id"] == "quiz":
-                                parsed = generate_quiz(api_key, chunks, 5)
-                                if parsed:
-                                    st.session_state.generated_cbt = parsed
-                                    st.session_state.cbt_user_answers = {}
-                                    st.session_state.cbt_submitted = False
-                                    st.session_state.palette_result = parsed
-                                    st.session_state.palette_result_type = "quiz"
-                                else:
-                                    st.error("Couldn't generate questions — try again.")
-                            elif preset["id"] == "map":
-                                parsed = generate_concept_map(api_key, chunks)
-                                if parsed:
-                                    st.session_state.generated_concept_map = parsed
-                                    st.session_state.palette_result = parsed
-                                    st.session_state.palette_result_type = "map"
-                                else:
-                                    st.error("Couldn't generate a concept map — try again.")
+                        with st.spinner("Building notes and analogy..."):
+                            parsed = generate_notes_and_analogy(api_key, chunks, mode_key)
+                            if parsed:
+                                st.session_state.generated_sections = parsed
+                                st.session_state.generated_mode_label = MODE_LABELS[mode_key]
+                                st.session_state.active_view = "analogy"
                             else:
-                                parsed = generate_notes_and_analogy(api_key, chunks, preset["id"])
-                                if parsed:
-                                    st.session_state.generated_notes = parsed.get("literal_notes")
-                                    st.session_state.generated_summary = parsed.get("styled_explanation")
-                                    st.session_state.palette_result = parsed
-                                    st.session_state.palette_result_type = "notes"
-                                else:
-                                    st.error("Couldn't generate a summary — try again.")
+                                st.error("Couldn't generate a summary — try again.")
 
-    if not matches:
-        st.caption("No commands match that search.")
+# ============================================================
+# MAIN AREA — pure presentation, nothing else
+# ============================================================
+if not uploaded_file:
+    st.markdown(f"## {APP_NAME}")
+    st.markdown('<div class="subtitle">Upload a document on the left to get started.</div>', unsafe_allow_html=True)
+else:
+    view = st.session_state.active_view
 
-    st.markdown('</div>', unsafe_allow_html=True)
-
-    # Quick inline preview right under the palette so results are visible without switching tabs
-    if st.session_state.palette_result_type == "notes" and st.session_state.generated_notes:
-        pc1, pc2 = st.columns(2)
-        with pc1:
-            st.markdown(f'<div class="memo-card"><h4>Literal Notes</h4>{st.session_state.generated_notes}</div>', unsafe_allow_html=True)
-        with pc2:
-            st.markdown(f'<div class="memo-card"><h4>Analogy</h4>{st.session_state.generated_summary}</div>', unsafe_allow_html=True)
-    elif st.session_state.palette_result_type == "map" and st.session_state.generated_concept_map:
-        st.caption("Concept map generated — see the 'Concept Map Table' tab below.")
-    elif st.session_state.palette_result_type == "quiz" and st.session_state.generated_cbt:
-        st.caption("Quiz generated — see the 'CBT Objective Practice' tab below.")
-
-    # ============================================================
-    # FREE-FORM OMNI-BAR (ask anything, not a preset)
-    # ============================================================
-    with st.expander("💬 Ask anything (free-form question about this document)"):
-        shortcut_input = st.text_input(
-            "Ask Gemini anything about this document...",
-            placeholder="e.g. 'Extract the major risks', 'Give me a list of terms'",
-            key="omni_input"
+    if view is None:
+        st.markdown(f"## {APP_NAME}")
+        st.markdown(
+            '<div class="subtitle">Document loaded. Choose an action on the left — Quiz me, Concept map, or an Analogy style.</div>',
+            unsafe_allow_html=True
         )
-        if shortcut_input:
-            cleaned_query = shortcut_input.strip()
-            if cleaned_query != st.session_state.last_processed_query:
-                if not api_key:
-                    st.error("Missing API Key!")
-                else:
-                    with st.spinner("Gemini is analyzing the document..."):
-                        context_sample = f"[Document Excerpt]\n{chunks[0][:5000]}\n{chunks[1][:3000]}"
-                        omni_prompt = f"""
-                        You are a real-time smart search engine assistant for this document.
-                        Answer the following custom user query based strictly on the document context provided below.
 
-                        User Query: {cleaned_query}
+    elif view == "analogy":
+        st.markdown(f"## 💡 {st.session_state.generated_mode_label} Analogy")
+        sections = st.session_state.generated_sections or []
 
-                        Document Context:
-                        {context_sample}
-                        """
-                        result = ask_gemini(api_key, omni_prompt, dynamic_mode=True)
-                        if result is None:
-                            st.error("Server lines are busy. Try again in a moment!")
-                        else:
-                            st.session_state.omni_bar_response = result
-                            st.session_state.last_processed_query = cleaned_query
+        # Column headers, shown once
+        h1, h2 = st.columns(2)
+        with h1:
+            st.markdown("**📌 Literal Notes**")
+        with h2:
+            st.markdown("**💡 Analogy**")
 
-        if st.session_state.omni_bar_response:
-            st.markdown('<div class="workspace-card">', unsafe_allow_html=True)
-            st.markdown(st.session_state.omni_bar_response)
-            st.markdown('</div>', unsafe_allow_html=True)
+        for sec in sections:
+            topic = sec.get("topic", "").strip()
+            note = sec.get("literal_note", "").strip()
+            analogy = sec.get("analogy", "").strip()
 
-    st.markdown("---")
+            if topic:
+                st.markdown(f"#### {topic}")
 
-    # ============================================================
-    # WORKSPACE TABS
-    # ============================================================
-    tab1, tab2, tab3 = st.tabs([
-        "Custom Explanation Summary",
-        "CBT Objective Practice",
-        "Concept Map Table"
-    ])
-
-    # --- TAB 1: side-by-side memory cards ---
-    with tab1:
-        st.markdown("""
-            <div class="flex-container">
-                <svg class="icon-svg" xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>
-                <h3 style="margin:0; font-size: 1.15rem;">Tailored Multi-Mode Explanation Engine</h3>
-            </div>
-        """, unsafe_allow_html=True)
-
-        mode_choice = st.selectbox(
-            "Choose Your Desired Explanation Persona:",
-            list(MODE_LABELS.values())
-        )
-        mode_key = [k for k, v in MODE_LABELS.items() if v == mode_choice][0]
-
-        if st.button("Generate Notes & Analogy (side by side)", key="btn_summary"):
-            if not api_key:
-                st.error("Missing API Key!")
-            elif not raw_text.strip():
-                st.error("Could not extract any text from this document.")
-            else:
-                with st.spinner("Building your literal notes and analogy..."):
-                    parsed = generate_notes_and_analogy(api_key, chunks, mode_key)
-                    if parsed:
-                        st.session_state.generated_notes = parsed.get("literal_notes")
-                        st.session_state.generated_summary = parsed.get("styled_explanation")
-                    else:
-                        st.error("Couldn't generate a summary this time — please try again.")
-
-        if st.session_state.generated_notes or st.session_state.generated_summary:
             c1, c2 = st.columns(2)
             with c1:
                 st.markdown(
-                    f'<div class="memo-card"><h4>📌 Literal Notes</h4>{st.session_state.generated_notes or "—"}</div>',
+                    f'<div class="memo-card">{note or "—"}</div>',
                     unsafe_allow_html=True
                 )
             with c2:
                 st.markdown(
-                    f'<div class="memo-card"><h4>💡 Analogy</h4>{st.session_state.generated_summary or "—"}</div>',
+                    f'<div class="memo-card">{analogy or "—"}</div>',
                     unsafe_allow_html=True
                 )
+            st.markdown("")  # small spacer between sections
 
-    # --- TAB 2: CBT quiz ---
-    with tab2:
-        st.markdown("""
-            <div class="flex-container">
-                <svg class="icon-svg" xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
-                <h3 style="margin:0; font-size: 1.15rem;">CBT-Style Objective Practice</h3>
-            </div>
-        """, unsafe_allow_html=True)
+    elif view == "quiz":
+        st.markdown("## 📝 Practice Quiz")
+        with st.form("cbt_quiz_form"):
+            for i, qq in enumerate(st.session_state.generated_cbt):
+                st.markdown(f"**Q{i + 1}. {qq.get('question', '')}**")
+                choice = st.radio(
+                    label=f"question_{i}",
+                    options=list(range(len(qq.get("options", [])))),
+                    format_func=lambda idx, opts=qq.get("options", []): opts[idx],
+                    key=f"cbt_radio_{i}",
+                    label_visibility="collapsed"
+                )
+                st.session_state.cbt_user_answers[i] = choice
+            submitted = st.form_submit_button("Submit Answers")
+            if submitted:
+                st.session_state.cbt_submitted = True
 
-        num_questions = st.slider("How many questions?", min_value=3, max_value=15, value=5, key="num_q")
+        if st.session_state.cbt_submitted:
+            score = 0
+            for i, qq in enumerate(st.session_state.generated_cbt):
+                user_choice = st.session_state.cbt_user_answers.get(i)
+                correct_index = qq.get("correct_index")
+                if user_choice == correct_index:
+                    score += 1
+                    st.success(f"Q{i + 1}: Correct!")
+                else:
+                    options = qq.get("options", [])
+                    correct_text = options[correct_index] if correct_index is not None and correct_index < len(options) else "N/A"
+                    st.error(f"Q{i + 1}: Incorrect. Correct answer: {correct_text}")
+                if qq.get("explanation"):
+                    st.caption(qq["explanation"])
+            st.markdown(f"### Score: {score} / {len(st.session_state.generated_cbt)}")
 
-        if st.button("Generate Practice Questions", key="btn_cbt"):
-            if not api_key:
-                st.error("Missing API Key!")
-            elif not raw_text.strip():
-                st.error("Could not extract any text from this document.")
-            else:
-                with st.spinner("Writing your CBT practice questions..."):
-                    parsed = generate_quiz(api_key, chunks, num_questions)
-                    if not parsed:
-                        st.error("Couldn't generate valid questions this time — please try again.")
-                    else:
-                        st.session_state.generated_cbt = parsed
-                        st.session_state.cbt_user_answers = {}
-                        st.session_state.cbt_submitted = False
-
-        if st.session_state.generated_cbt:
-            st.markdown('<div class="workspace-card"><h4>📝 Practice Quiz</h4></div>', unsafe_allow_html=True)
-            with st.form("cbt_quiz_form"):
-                for i, qq in enumerate(st.session_state.generated_cbt):
-                    st.markdown(f"**Q{i + 1}. {qq.get('question', '')}**")
-                    choice = st.radio(
-                        label=f"question_{i}",
-                        options=list(range(len(qq.get("options", [])))),
-                        format_func=lambda idx, opts=qq.get("options", []): opts[idx],
-                        key=f"cbt_radio_{i}",
-                        label_visibility="collapsed"
-                    )
-                    st.session_state.cbt_user_answers[i] = choice
-                submitted = st.form_submit_button("Submit Answers")
-                if submitted:
-                    st.session_state.cbt_submitted = True
-
-            if st.session_state.cbt_submitted:
-                score = 0
-                for i, qq in enumerate(st.session_state.generated_cbt):
-                    user_choice = st.session_state.cbt_user_answers.get(i)
-                    correct_index = qq.get("correct_index")
-                    if user_choice == correct_index:
-                        score += 1
-                        st.success(f"Q{i + 1}: Correct!")
-                    else:
-                        options = qq.get("options", [])
-                        correct_text = options[correct_index] if correct_index is not None and correct_index < len(options) else "N/A"
-                        st.error(f"Q{i + 1}: Incorrect. Correct answer: {correct_text}")
-                    if qq.get("explanation"):
-                        st.caption(qq["explanation"])
-                st.markdown(f"### Score: {score} / {len(st.session_state.generated_cbt)}")
-
-    # --- TAB 3: concept map ---
-    with tab3:
-        st.markdown("""
-            <div class="flex-container">
-                <svg class="icon-svg" xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="5" r="2"/><circle cx="5" cy="19" r="2"/><circle cx="19" cy="19" r="2"/><path d="M12 7v6M12 13l-6 4M12 13l6 4"/></svg>
-                <h3 style="margin:0; font-size: 1.15rem;">Concept Map Table</h3>
-            </div>
-        """, unsafe_allow_html=True)
-
-        if st.button("Generate Concept Map", key="btn_concept_map"):
-            if not api_key:
-                st.error("Missing API Key!")
-            elif not raw_text.strip():
-                st.error("Could not extract any text from this document.")
-            else:
-                with st.spinner("Mapping out the key concepts and how they connect..."):
-                    parsed = generate_concept_map(api_key, chunks)
-                    if not parsed:
-                        st.error("Couldn't generate a concept map this time — please try again.")
-                    else:
-                        st.session_state.generated_concept_map = parsed
-
-        if st.session_state.generated_concept_map:
-            st.markdown('<div class="workspace-card"><h4>🧠 Key Concepts</h4></div>', unsafe_allow_html=True)
-            st.table(st.session_state.generated_concept_map)
-
-else:
-    st.info("Upload a document above to unlock the command palette and all three workspace tabs.")
+    elif view == "map":
+        st.markdown("## 🧠 Concept Map")
+        st.markdown('<div class="workspace-card">', unsafe_allow_html=True)
+        st.table(st.session_state.generated_concept_map)
+        st.markdown('</div>', unsafe_allow_html=True)
