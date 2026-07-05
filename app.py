@@ -169,26 +169,37 @@ def build_document_context(chunks):
 
 
 def generate_notes_and_analogy(api_key, chunks, mode_key):
-    """Breaks the document into topic-sized sections and returns, for each section,
-    the literal note AND its matching analogy — so they can be rendered as paired
-    rows instead of two unrelated blocks of text."""
+    """Breaks the document into ONE entry per individual rule, term, or defined
+    concept (not grouped topics), and returns the literal note AND its matching
+    analogy for each — so they can be rendered as paired rows, one per specific
+    item, instead of clustered paragraphs covering several terms at once."""
     doc_context = build_document_context(chunks)
     style_prompt = STYLE_PROMPTS[mode_key]
     prompt = f"""
-    Break the document below into 5-9 logical topic sections (definitions, rules,
-    processes, configurations — whatever the natural divisions are).
+    Go through the document below and pull out EVERY distinct rule, policy, defined
+    term, or named concept as its OWN separate entry. Do not group multiple terms
+    into one entry, and do not merge several rules into a single paragraph.
 
-    For EACH section, produce a matched pair: the literal factual note, and the
-    analogy explanation of that SAME piece of content. They must correspond to
-    each other one-to-one — do not summarize the whole document twice separately.
+    For example, if the document mentions "Role-Based" and "Attribute-Based" as two
+    types of access control, they must be TWO separate entries, not one entry about
+    "access control" in general. If it defines "BYOD" and separately describes a
+    "fingerprint scan" login rule, those are two separate entries too.
+
+    There is no fixed number of entries — extract as many as the document actually
+    contains (this could be anywhere from 5 to 25+). Err on the side of splitting
+    things apart rather than combining them.
+
+    For EACH entry, produce a matched pair: the literal factual note, and the
+    analogy explanation of that SAME single item. They must correspond to each
+    other one-to-one.
 
     Respond with ONLY a raw JSON array, no markdown fences, no commentary, in this
     exact schema:
     [
       {{
-        "topic": "short section title, e.g. 'Definition of X' or 'Rule for Y'",
-        "literal_note": "Strict, literal, factual explanation of this section only: exact definitions, configurations, or rules. No analogies. 1-3 sentences or a short bullet list.",
-        "analogy": "The SAME section re-explained using the style below. 1-3 sentences."
+        "topic": "the specific rule/term name only, e.g. 'Role-Based Access Control' — not a broad category",
+        "literal_note": "Strict, literal, factual explanation of THIS ONE item only: its exact definition or rule. No analogies. 1-2 sentences.",
+        "analogy": "The SAME single item re-explained using the style below. 1-2 sentences."
       }}
     ]
 
