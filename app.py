@@ -10,7 +10,7 @@ import io
 
 APP_NAME = "DocDigest"
 
-st.set_page_config(page_title=APP_NAME, layout="wide")
+st.set_page_config(page_title=APP_NAME, layout="wide", initial_sidebar_state="expanded")
 
 # ============================================================
 # LIGHT THEME, PURPLE ACCENT (kept close to the original look)
@@ -55,6 +55,13 @@ st.markdown("""
         width: 100%;
         text-align: left;
         border-radius: 6px;
+    }
+    /* Lock the sidebar open — hide the collapse arrow entirely */
+    [data-testid="stSidebarCollapseButton"] {
+        display: none !important;
+    }
+    [data-testid="collapsedControl"] {
+        display: none !important;
     }
 </style>
 """, unsafe_allow_html=True)
@@ -272,7 +279,44 @@ with st.sidebar:
     """, unsafe_allow_html=True)
     st.caption("Upload a document, then run an action below.")
 
-    uploaded_file = st.file_uploader("Upload document", type=["pdf", "docx", "pptx", "pptm"])
+# ============================================================
+# MAIN AREA — file upload lives here now
+# ============================================================
+st.markdown(f"## {APP_NAME}")
+st.markdown('<div class="subtitle">Upload a document, then run an action from the left panel.</div>', unsafe_allow_html=True)
+
+uploaded_file = st.file_uploader("Upload document", type=["pdf", "docx", "pptx", "pptm"])
+
+raw_text = ""
+chunks = ["", "", "", ""]
+
+if uploaded_file:
+    file_bytes = uploaded_file.getvalue()
+    raw_text = extract_text(file_bytes, uploaded_file.name)
+    total_length = len(raw_text) if raw_text else 0
+    chunk_size = max(1, total_length // 4)
+    chunks = [
+        raw_text[0:chunk_size] if total_length > 0 else "",
+        raw_text[chunk_size:chunk_size * 2] if total_length > 0 else "",
+        raw_text[chunk_size * 2:chunk_size * 3] if total_length > 0 else "",
+        raw_text[chunk_size * 3:] if total_length > 0 else "",
+    ]
+
+st.markdown("---")
+
+# ============================================================
+# LEFT SIDEBAR — actions only (upload now lives in the main area)
+# ============================================================
+with st.sidebar:
+    st.markdown(f"""
+        <div class="flex-container">
+            <svg class="icon-svg" xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                <path d="m16 6 4 14"/><path d="M12 6v14"/><path d="M8 8v12"/><path d="M4 4v16"/>
+            </svg>
+            <h2 style="margin:0; font-size:1.4rem;">{APP_NAME}</h2>
+        </div>
+    """, unsafe_allow_html=True)
+    st.caption("Run an action on your uploaded document.")
 
     # API key setup (chosen once per session)
     api_keys = []
@@ -291,22 +335,9 @@ with st.sidebar:
             st.session_state.chosen_api_key = random.choice(api_keys)
         api_key = st.session_state.chosen_api_key
 
-    raw_text = ""
-    chunks = ["", "", "", ""]
-
-    if uploaded_file:
-        file_bytes = uploaded_file.getvalue()
-        raw_text = extract_text(file_bytes, uploaded_file.name)
-        total_length = len(raw_text) if raw_text else 0
-        chunk_size = max(1, total_length // 4)
-        chunks = [
-            raw_text[0:chunk_size] if total_length > 0 else "",
-            raw_text[chunk_size:chunk_size * 2] if total_length > 0 else "",
-            raw_text[chunk_size * 2:chunk_size * 3] if total_length > 0 else "",
-            raw_text[chunk_size * 3:] if total_length > 0 else "",
-        ]
-
-        st.markdown("---")
+    if not uploaded_file:
+        st.info("Upload a document above to unlock these actions.")
+    else:
         st.markdown("**Quiz & Concepts**")
 
         if st.button("📝  Quiz me"):
@@ -371,18 +402,14 @@ with st.sidebar:
                                 st.error("Couldn't generate a summary — try again.")
 
 # ============================================================
-# MAIN AREA — pure presentation, nothing else
+# MAIN AREA (continued) — presentation of results, below the uploader
 # ============================================================
-if not uploaded_file:
-    st.markdown(f"## {APP_NAME}")
-    st.markdown('<div class="subtitle">Upload a document on the left to get started.</div>', unsafe_allow_html=True)
-else:
+if uploaded_file:
     view = st.session_state.active_view
 
     if view is None:
-        st.markdown(f"## {APP_NAME}")
         st.markdown(
-            '<div class="subtitle">Document loaded. Choose an action on the left — Quiz me, Concept map, or an Analogy style.</div>',
+            '<div class="subtitle">Document loaded. Choose an action from the left panel — Quiz me, Concept map, or an Analogy style.</div>',
             unsafe_allow_html=True
         )
 
