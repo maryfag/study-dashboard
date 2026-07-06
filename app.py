@@ -55,8 +55,6 @@ st.markdown("""
 # --- STATE MEMORY CORES: Keeps sections from wiping out ---
 if "generated_summary" not in st.session_state:
     st.session_state.generated_summary = None
-if "generated_sections" not in st.session_state:
-    st.session_state.generated_sections = None
 if "generated_mode_label" not in st.session_state:
     st.session_state.generated_mode_label = None
 if "generated_cbt" not in st.session_state:
@@ -203,60 +201,62 @@ if uploaded_file:
             </div>
         """, unsafe_allow_html=True)
 
-        st.caption("Pick a style — each one breaks the document down item by item, note next to analogy.")
+        st.caption("Pick a persona — Column 2 becomes one continuous narrative built on the document.")
 
         MODE_OPTIONS = {
-            "buddy": ("Campus Buddy", "You are a relatable university peer tutor. Use simple, engaging, and funny student/campus analogies (like hostel porters or campus gates) to explain everything simply. Highlight key terms in **bold**."),
-            "street": ("Street-Smart", "You are a highly practical, street-smart operations mentor. Explain the concepts using crisp, real-world analogies based on everyday logic, physical logistics, spotting counterfeits, managing daily physical operations, or coordinating delivery logistics. Avoid corporate boardroom slangs and avoid campus-specific university terms. Make it punchy and clear for anyone living in the real world. Highlight key terms in **bold**."),
-            "technical": ("Deep Technical", "You are a senior technical enterprise architect. Break down the content using exact, rigorous academic definitions, engineering mechanics, and precise technical infrastructure logic. Highlight key terms in **bold**."),
-            "layman": ("Layman", "You are explaining this to a complete novice. Use ultra-simplified, everyday non-tech visual elements. Avoid any advanced technical concepts or assumptions of prior engineering knowledge. Highlight key terms in **bold**."),
+            "buddy": ("Campus Buddy", "You are a witty, supportive university peer tutor writing a cohesive campus survival guide. Establish a single, continuous story using the chaotic ecosystem of university life (like navigating strict hostel porters, fighting for hostel Wi-Fi bandwidth, or queuing at the campus gate). Every technical concept from the document must become a recurring character or mechanic in this campus saga. Keep the tone conversational, funny, and deeply protective of your friend's grades. Wrap key terms in <strong> tags."),
+            "street": ("Street-Smart", "You are a practical operations mentor grounding the material in a single, continuous real-world hustle. Use a macro-metaphor of a massive physical enterprise—like a city-wide delivery logistics network, a bustling open-air market, or an operation tracking down counterfeit goods. Ensure every piece of technical infrastructure on the left is represented as a structural asset or security check in this ongoing street-smart operation. Keep it highly interconnected, punchy, and grounded. Wrap key terms in <strong> tags."),
+            "technical": ("Deep Technical", "You are a senior enterprise systems architect designing a fully integrated dependency pipeline. Do not just list isolated specs; write a continuous architectural whitepaper where every technical concept acts as a precise mechanism that feeds into, triggers, or constrains the next phase of the global infrastructure layout. Ensure deep logical continuity from top to bottom. Wrap key terms in <strong> tags."),
+            "layman": ("Layman", "You are a master storyteller translating complex machinery into a beautiful, non-technical visual fable. Use a single, expansive overarching metaphor—like a giant castle postal sorting system, a kingdom's plumbing infrastructure, or a massive restaurant kitchen. Walk the reader through this world continuously, ensuring that each new concept builds directly upon the room or process established in the previous paragraph. Wrap key terms in <strong> tags."),
         }
 
-        for mode_id, (label, style_prompt) in MODE_OPTIONS.items():
+        for mode_id, (label, persona_vibe) in MODE_OPTIONS.items():
             if st.button(label, key=f"mode_{mode_id}"):
                 if not api_key:
                     st.error("Missing API Key!")
                 elif not raw_text.strip():
                     st.error("Could not extract any text from this document.")
                 else:
-                    with st.spinner("Processing custom persona analytics across the full document..."):
+                    with st.spinner("Building the dual-stream notes..."):
                         prompt = f"""
-                        Go through the document below and pull out EVERY distinct rule, policy, defined
-                        term, or named concept as its OWN separate entry. Do not group multiple terms
-                        into one entry, and do not merge several rules into a single paragraph.
+                        You are a dual-stream content engine. Generate two perfectly distinct but
+                        chronologically mirrored texts that will sit side-by-side.
 
-                        For example, if the document mentions two sub-types of the same category,
-                        they must be TWO separate entries, not one entry about the category in general.
+                        COLUMN 1: "Grounded Truth"
+                        - Write a highly accurate, structured, and literal academic summary of the text.
+                        - It should cover definitions, configurations, and core technical rules sequentially.
 
-                        There is no fixed number of entries — extract as many as the document actually
-                        contains. Err on the side of splitting things apart rather than combining them.
+                        COLUMN 2: "The Immersive Persona Note"
+                        - Do NOT just write isolated, paragraph-by-paragraph translations or dry bullet points matching the left column.
+                        - Instead, treat this column as a complete, standalone, deeply interconnected "Companion Textbook" written entirely through the lens of the chosen Persona.
+                        - This column must establish a single, continuous world or narrative arc from the very first sentence to the very last. Every concept must flow naturally into the next, building a cohesive world where earlier analogies are referenced and expanded upon later. It should feel like a full, rich study note, just told entirely as a living metaphor.
 
-                        For EACH entry, produce a matched pair: the literal factual note, and the
-                        analogy explanation of that SAME single item, using the persona below.
+                        GLOBAL FORMATTING RULES:
+                        1. The progression of concepts in Column 2 must mirror the chronology of Column 1 exactly, so the user can read them in parallel.
+                        2. STIPULATION ON BOLDING: Never use markdown asterisks (like **text**) to bold phrases. Instead, wrap key technical definitions and core takeaways using HTML strong tags (like <strong>text</strong>).
 
-                        Respond with ONLY a raw JSON array, no markdown fences, no commentary, in this
-                        exact schema:
-                        [
-                          {{
-                            "topic": "the specific rule/term name only",
-                            "literal_note": "Strict, literal, factual explanation of THIS ONE item only. No analogies. 1-2 sentences.",
-                            "analogy": "The SAME single item re-explained using the persona below. 1-2 sentences."
-                          }}
-                        ]
+                        PERSONA INSTRUCTION FOR COLUMN 2:
+                        {persona_vibe}
 
-                        Persona: {style_prompt}
+                        Respond in EXACTLY this format, with no extra commentary before or after:
+                        <<<COLUMN1>>>
+                        (Grounded Truth text goes here)
+                        <<<COLUMN2>>>
+                        (Immersive Persona Note text goes here)
 
-                        Study Text Sections:
+                        Document Text:
                         {safe_combined_text}
                         """
                         result = ask_gemini(api_key, prompt, dynamic_mode=True)
-                        parsed = extract_json_block(result)
-                        if parsed:
-                            st.session_state.generated_sections = parsed
+                        col1_match = re.search(r"<<<COLUMN1>>>(.*?)<<<COLUMN2>>>", result, re.DOTALL) if result else None
+                        col2_match = re.search(r"<<<COLUMN2>>>(.*)", result, re.DOTALL) if result else None
+                        if col1_match and col2_match:
+                            st.session_state.generated_notes = col1_match.group(1).strip()
+                            st.session_state.generated_summary = col2_match.group(1).strip()
                             st.session_state.generated_mode_label = label
                             st.session_state.active_view = "analogy"
                         else:
-                            st.error("Couldn't generate a summary this time — please try again.")
+                            st.error("Couldn't generate the dual-stream notes this time — please try again.")
 
         st.markdown("---")
         st.markdown("""
@@ -364,29 +364,20 @@ if uploaded_file:
         st.info("Document loaded. Choose an action from the left panel to get started.")
 
     elif view == "analogy":
-        st.markdown(f"### 💡 {st.session_state.generated_mode_label} — Notes & Analogy")
-        sections = st.session_state.generated_sections or []
-
-        h1, h2 = st.columns(2)
-        with h1:
-            st.markdown("**📌 Literal Notes**")
-        with h2:
-            st.markdown("**💡 Analogy**")
-
-        for sec in sections:
-            topic = sec.get("topic", "").strip()
-            note = sec.get("literal_note", "").strip()
-            analogy = sec.get("analogy", "").strip()
-
-            if topic:
-                st.markdown(f"#### {topic}")
-
-            c1, c2 = st.columns(2)
-            with c1:
-                st.markdown(f'<div class="memo-card">{note or "—"}</div>', unsafe_allow_html=True)
-            with c2:
-                st.markdown(f'<div class="memo-card">{analogy or "—"}</div>', unsafe_allow_html=True)
-            st.markdown("")
+        st.markdown(f"### 💡 {st.session_state.generated_mode_label} — Dual-Stream Notes")
+        c1, c2 = st.columns(2)
+        with c1:
+            st.markdown("**📌 Grounded Truth**")
+            st.markdown(
+                f'<div class="memo-card">{st.session_state.generated_notes or "—"}</div>',
+                unsafe_allow_html=True
+            )
+        with c2:
+            st.markdown("**💡 Immersive Persona Note**")
+            st.markdown(
+                f'<div class="memo-card">{st.session_state.generated_summary or "—"}</div>',
+                unsafe_allow_html=True
+            )
 
     elif view == "quiz":
         st.markdown(f"### 🧩 CBT Practice — {st.session_state.current_cbt_batch}")
