@@ -55,6 +55,8 @@ st.markdown("""
 # --- STATE MEMORY CORES: Keeps sections from wiping out ---
 if "generated_summary" not in st.session_state:
     st.session_state.generated_summary = None
+if "generated_notes" not in st.session_state:
+    st.session_state.generated_notes = None
 if "generated_mode_label" not in st.session_state:
     st.session_state.generated_mode_label = None
 if "generated_cbt" not in st.session_state:
