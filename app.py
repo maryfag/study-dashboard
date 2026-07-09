@@ -198,26 +198,14 @@ if uploaded_file:
             </div>
         """, unsafe_allow_html=True)
 
-        st.caption("Choose a section, then a persona — the persona note, quiz, and recall table all stay scoped to this section.")
+        st.caption("Pick a persona — both columns follow the same numbered structure, so you can read them in parallel.")
 
-        batch_selection = st.selectbox(
-            "Study Section:",
-            ["Batch 1: Introduction & Foundation Concepts",
-             "Batch 2: Core Methodologies & Process Details",
-             "Batch 3: Deep Technical Content",
-             "Batch 4: Advanced Scenarios & Conclusions"]
+        safe_combined_text = (
+            f"[Introductory Section]\n{chunk_1[:3500]}\n\n"
+            f"[Core Section A]\n{chunk_2[:3500]}\n\n"
+            f"[Core Section B]\n{chunk_3[:3500]}\n\n"
+            f"[Advanced / Concluding Section]\n{chunk_4[:3500]}"
         )
-
-        if batch_selection.startswith("Batch 1"):
-            section_text = chunk_1[:9000]
-        elif batch_selection.startswith("Batch 2"):
-            section_text = chunk_2[:9000]
-        elif batch_selection.startswith("Batch 3"):
-            section_text = chunk_3[:9000]
-        else:
-            section_text = chunk_4[:9000]
-
-        st.markdown("")
 
         MODE_OPTIONS = {
             "buddy": ("Campus Buddy", "You are a witty, supportive university peer tutor writing a cohesive campus survival guide. Establish a single, continuous story using the chaotic ecosystem of university life (like navigating strict hostel porters, fighting for hostel Wi-Fi bandwidth, or queuing at the campus gate). Every technical concept from the document must become a recurring character or mechanic in this campus saga. Keep the tone conversational, funny, and deeply protective of your friend's grades. Wrap key terms in <strong> tags."),
@@ -239,25 +227,37 @@ Wrap key terms in <strong> tags."""),
             if st.button(label, key=f"mode_{mode_id}"):
                 if not api_key:
                     st.error("Missing API Key!")
-                elif not section_text.strip():
-                    st.error("This section doesn't contain enough text to extract data.")
+                elif not raw_text.strip():
+                    st.error("Could not extract any text from this document.")
                 else:
-                    with st.spinner("Building the dual-stream notes for this section..."):
+                    with st.spinner("Building the dual-stream notes..."):
                         prompt = f"""
                         You are a dual-stream content engine. Generate two perfectly distinct but
-                        chronologically mirrored texts that will sit side-by-side.
+                        structurally mirrored texts that will sit side-by-side.
+
+                        FIRST, break the document down into a numbered sequence of concepts/sections
+                        in the order they appear (e.g. 1, 2, 3...). Use as many numbered sections as the
+                        document naturally has distinct concepts — do not force an arbitrary count.
 
                         COLUMN 1: "Grounded Truth"
-                        - Write a highly accurate, structured, and literal academic summary of the text.
-                        - It should cover definitions, configurations, and core technical rules sequentially.
+                        - For EACH numbered section, write a highly accurate, structured, literal
+                          academic explanation: definitions, configurations, and core technical rules.
+                        - Prefix each section with its number and a short title, e.g. "1. Sender".
 
                         COLUMN 2: "The Immersive Persona Note"
-                        - Do NOT just write isolated, paragraph-by-paragraph translations or dry bullet points matching the left column.
-                        - Instead, treat this column as a complete, standalone, deeply interconnected "Companion Textbook" written entirely through the lens of the chosen Persona.
-                        - This column must establish a single, continuous world or narrative arc from the very first sentence to the very last. Every concept must flow naturally into the next, building a cohesive world where earlier analogies are referenced and expanded upon later. It should feel like a full, rich study note, just told entirely as a living metaphor.
+                        - Use the EXACT SAME numbering and section titles as Column 1, so the two
+                          columns line up one-to-one and can be read in parallel.
+                        - Within and across those numbered sections, do NOT write isolated, dry,
+                          one-off translations. Instead, treat the whole column as a single continuous
+                          "Companion Textbook" written entirely through the lens of the chosen Persona.
+                          Concepts should flow naturally from one numbered section into the next,
+                          building one cohesive world where earlier analogies are referenced and
+                          expanded upon later — the numbering marks where each concept begins, but the
+                          narrative itself keeps flowing.
 
                         GLOBAL FORMATTING RULES:
-                        1. The progression of concepts in Column 2 must mirror the chronology of Column 1 exactly, so the user can read them in parallel.
+                        1. Column 1 and Column 2 must use the IDENTICAL numbered sequence and section
+                           titles, so a reader can match "1." on the left with "1." on the right exactly.
                         2. STIPULATION ON BOLDING: Never use markdown asterisks (like **text**) to bold phrases. Instead, wrap key technical definitions and core takeaways using HTML strong tags (like <strong>text</strong>).
 
                         PERSONA INSTRUCTION FOR COLUMN 2:
@@ -265,12 +265,12 @@ Wrap key terms in <strong> tags."""),
 
                         Respond in EXACTLY this format, with no extra commentary before or after:
                         <<<COLUMN1>>>
-                        (Grounded Truth text goes here)
+                        (Grounded Truth text goes here, numbered sections)
                         <<<COLUMN2>>>
-                        (Immersive Persona Note text goes here)
+                        (Immersive Persona Note text goes here, SAME numbered sections)
 
-                        Document Text (this is only {batch_selection} — do not reference other sections):
-                        {section_text}
+                        Document Text:
+                        {safe_combined_text}
                         """
                         result = ask_gemini(api_key, prompt, dynamic_mode=True)
                         col1_match = re.search(r"<<<COLUMN1>>>(.*?)<<<COLUMN2>>>", result, re.DOTALL) if result else None
@@ -279,7 +279,6 @@ Wrap key terms in <strong> tags."""),
                             st.session_state.generated_notes = col1_match.group(1).strip()
                             st.session_state.generated_summary = col2_match.group(1).strip()
                             st.session_state.generated_mode_label = label
-                            st.session_state.generated_batch_label = batch_selection
                             st.session_state.active_view = "analogy"
                         else:
                             st.error("Couldn't generate the dual-stream notes this time — please try again.")
@@ -299,20 +298,43 @@ Wrap key terms in <strong> tags."""),
         if not has_analogy:
             st.info("Generate a persona analogy above first — the quiz is built from it.")
 
+        quiz_batch = st.selectbox(
+            "Focus the quiz on:",
+            ["Batch 1: Introduction & Foundation Concepts",
+             "Batch 2: Core Methodologies & Process Details",
+             "Batch 3: Deep Technical Content",
+             "Batch 4: Advanced Scenarios & Conclusions"],
+            key="quiz_batch_select"
+        )
+
+        if quiz_batch.startswith("Batch 1"):
+            quiz_focus_text = chunk_1[:9000]
+        elif quiz_batch.startswith("Batch 2"):
+            quiz_focus_text = chunk_2[:9000]
+        elif quiz_batch.startswith("Batch 3"):
+            quiz_focus_text = chunk_3[:9000]
+        else:
+            quiz_focus_text = chunk_4[:9000]
+
         if st.button("Generate Analogy-Aware Quiz", key="btn_cbt", disabled=not has_analogy):
             if not api_key:
                 st.error("Missing API Key!")
+            elif not quiz_focus_text.strip():
+                st.error("This section doesn't contain enough text to extract data.")
             else:
                 with st.spinner("Writing analogy-aware quiz questions..."):
                     prompt = f"""
                     You are generating CBT-style multiple choice questions that test BOTH technical
                     accuracy AND correct understanding of the persona analogy the user just read.
 
-                    You will be given: (a) the Deep Technical passage, and (b) the persona narrative
-                    the user was shown ({st.session_state.generated_mode_label}).
+                    Only generate questions covering concepts that actually appear in the "Section To
+                    Quiz" text below. Use the full Grounded Truth and Persona Narrative only as
+                    reference material to find the correct definitions and analogy mappings for those
+                    concepts — ignore concepts from other parts of the document that aren't present
+                    in this section.
 
-                    Step 1 — Identify the core technical concept(s) covered in this passage.
-                    Step 2 — Identify the exact analogy mapping used in the persona narrative for each concept.
+                    Step 1 — Identify the core technical concept(s) covered in the Section To Quiz.
+                    Step 2 — Identify the exact analogy mapping used in the Persona Narrative for each concept.
                     Step 3 — For each question:
                     - Write ONE correct answer that reflects the accurate mapping from Step 2.
                     - Write ONE distractor that represents the most common way someone misreads THIS
@@ -321,27 +343,28 @@ Wrap key terms in <strong> tags."""),
                     - After the answer, add a one-line explanation of WHY the misread distractor is a
                       common trap, so the user learns even from getting it wrong.
                     Step 4 — Self-check internally: confirm no question's "correct" answer actually
-                    reflects a subtly wrong mapping (re-verify against the Deep Technical passage
-                    directly, not the analogy). Do not show this step in your output.
+                    reflects a subtly wrong mapping (re-verify against the Grounded Truth directly, not
+                    the analogy). Do not show this step in your output.
 
                     Generate 6 to 8 questions total.
 
                     Output ONLY this format per question, no internal steps shown:
                     Question: [text]
                     A) [option] B) [option] C) [option] D) [option]
-                    ✅ Correct Answer: [letter] — [1-line technical justification, quoting the Deep Technical passage's logic, not the analogy]
+                    ✅ Correct Answer: [letter] — [1-line technical justification, quoting the Grounded Truth's logic, not the analogy]
                     ⚠️ Common trap: [which distractor people usually pick and why the analogy makes that mistake tempting]
 
-                    Deep Technical passage:
+                    Section To Quiz ({quiz_batch}):
+                    {quiz_focus_text}
+
+                    Full Grounded Truth (reference only):
                     {st.session_state.generated_notes}
 
-                    Persona narrative used:
+                    Full Persona Narrative used ({st.session_state.generated_mode_label}, reference only):
                     {st.session_state.generated_summary}
-
-                    Persona name: {st.session_state.generated_mode_label}
                     """
                     st.session_state.generated_cbt = ask_gemini(api_key, prompt, dynamic_mode=False)
-                    st.session_state.current_cbt_batch = f"{st.session_state.generated_mode_label} — {st.session_state.generated_batch_label}"
+                    st.session_state.current_cbt_batch = f"{st.session_state.generated_mode_label} — {quiz_batch}"
                     st.session_state.active_view = "quiz"
 
         st.markdown("---")
@@ -398,7 +421,7 @@ Wrap key terms in <strong> tags."""),
         st.info("Document loaded. Choose an action from the left panel to get started.")
 
     elif view == "analogy":
-        st.markdown(f"### 💡 {st.session_state.generated_mode_label} — {st.session_state.generated_batch_label}")
+        st.markdown(f"### 💡 {st.session_state.generated_mode_label} — Dual-Stream Notes")
         c1, c2 = st.columns(2)
         with c1:
             st.markdown("**📌 Grounded Truth**")
@@ -419,7 +442,7 @@ Wrap key terms in <strong> tags."""),
             st.markdown(st.session_state.generated_cbt, unsafe_allow_html=True)
 
     elif view == "cheatsheet":
-        st.markdown(f"### 🗂️ Recall Hook Table — {st.session_state.generated_mode_label} — {st.session_state.generated_batch_label}")
+        st.markdown(f"### 🗂️ Recall Hook Table — {st.session_state.generated_mode_label}")
         if st.session_state.generated_cheatsheet:
             st.markdown(st.session_state.generated_cheatsheet, unsafe_allow_html=True)
 
