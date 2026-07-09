@@ -210,6 +210,15 @@ if uploaded_file:
             "street": ("Street-Smart", "You are a practical operations mentor grounding the material in a single, continuous real-world hustle. Use a macro-metaphor of a massive physical enterprise—like a city-wide delivery logistics network, a bustling open-air market, or an operation tracking down counterfeit goods. Ensure every piece of technical infrastructure on the left is represented as a structural asset or security check in this ongoing street-smart operation. Keep it highly interconnected, punchy, and grounded. Wrap key terms in <strong> tags."),
             "technical": ("Deep Technical", "You are a senior enterprise systems architect designing a fully integrated dependency pipeline. Do not just list isolated specs; write a continuous architectural whitepaper where every technical concept acts as a precise mechanism that feeds into, triggers, or constrains the next phase of the global infrastructure layout. Ensure deep logical continuity from top to bottom. Wrap key terms in <strong> tags."),
             "layman": ("Layman", "You are a master storyteller translating complex machinery into a beautiful, non-technical visual fable. Use a single, expansive overarching metaphor—like a giant castle postal sorting system, a kingdom's plumbing infrastructure, or a massive restaurant kitchen. Walk the reader through this world continuously, ensuring that each new concept builds directly upon the room or process established in the previous paragraph. Wrap key terms in <strong> tags."),
+            "naija": ("Naija Voice", """You are the "Naija Voice" persona: convert the technical content into a relatable Nigerian street/market/society analogy — using scenarios like market bargaining, "one chance" buses, NEPA/generator light issues, okada riders, danfo conductors, network wahala, POS agents, and everyday Naija social dynamics (landlord issues, "aunty" at the shop, etc).
+
+Internally, before writing (do not show this reasoning in your output): (1) extract every key technical term with its precise one-line definition, (2) map each term to an exact Naija-world equivalent that preserves the SAME underlying mechanism, not just a similar vibe or mood — if a term has no natural match, don't force one, (3) narrate using ONLY those confirmed mappings, (4) self-check for anywhere the analogy could mislead a reader about how the real concept actually works.
+
+Write the visible narrative in a warm, expressive Nigerian pidgin-inflected voice (natural code-switching between English and pidgin — don't overdo the pidgin to the point of losing clarity). If your internal self-check found a real gap, weave a short honest caveat naturally into the end of the narrative instead of dropping it silently.
+
+Tone rules: confident, expressive, funny where natural — but never mock or stereotype; write like someone proudly explaining to a younger sibling or junior colleague. Avoid inventing slang that doesn't map to a real concept just to sound "street." Don't over-explain the pidgin — trust the reader.
+
+Wrap key terms in <strong> tags."""),
         }
 
         for mode_id, (label, persona_vibe) in MODE_OPTIONS.items():
@@ -268,91 +277,99 @@ if uploaded_file:
             </div>
         """, unsafe_allow_html=True)
 
-        st.caption("Select which block of the syllabus notes you want to generate questions from:")
+        st.caption("Tests both the real technical facts AND whether you understood the analogy — built from the analogy currently shown above.")
 
-        batch_selection = st.selectbox(
-            "Choose Target Study Block:",
-            ["Batch 1: Introduction & Foundation Concepts",
-             "Batch 2: Core Methodologies & Process Details",
-             "Batch 3: Deep Technical Content",
-             "Batch 4: Advanced Scenarios & Conclusions"]
-        )
+        has_analogy = bool(st.session_state.generated_notes and st.session_state.generated_summary)
 
-        if batch_selection.startswith("Batch 1"):
-            selected_text = chunk_1[:9000]
-            start_num = 1
-        elif batch_selection.startswith("Batch 2"):
-            selected_text = chunk_2[:9000]
-            start_num = 8
-        elif batch_selection.startswith("Batch 3"):
-            selected_text = chunk_3[:9000]
-            start_num = 15
-        else:
-            selected_text = chunk_4[:9000]
-            start_num = 22
+        if not has_analogy:
+            st.info("Generate a persona analogy above first — the quiz is built from it.")
 
-        if st.button("Convert Selected Block to Questions", key="btn_cbt"):
+        if st.button("Generate Analogy-Aware Quiz", key="btn_cbt", disabled=not has_analogy):
             if not api_key:
                 st.error("Missing API Key!")
-            elif not selected_text.strip():
-                st.error("This segment of the document doesn't contain enough text to extract data.")
             else:
-                with st.spinner(f"Mining questions starting from Q{start_num} for this specific text block..."):
+                with st.spinner("Writing analogy-aware quiz questions..."):
                     prompt = f"""
-                    You are a strict Computer Based Test (CBT) examiner.
-                    Analyze the uploaded text slice and transform the theoretical concepts into highly practical multiple-choice objective questions.
-                    You must output exactly 7 to 8 distinct multiple-choice questions.
-                    You MUST start numbering your output starting strictly from Question {start_num}.
+                    You are generating CBT-style multiple choice questions that test BOTH technical
+                    accuracy AND correct understanding of the persona analogy the user just read.
 
-                    STRICT FORMATTING MANDATE: Every single question must have exactly 4 options (A, B, C, D).
-                    Follow this exact structure for every item:
+                    You will be given: (a) the Deep Technical passage, and (b) the persona narrative
+                    the user was shown ({st.session_state.generated_mode_label}).
 
-                    **Question X: [Insert question here]**
-                    A) [Option A]
-                    B) [Option B]
-                    C) [Option C]
-                    D) [Option D]
-                    * 👉 **Correct Answer:** || [State correct letter, followed by 1-sentence explanation] ||
+                    Step 1 — Identify the core technical concept(s) covered in this passage.
+                    Step 2 — Identify the exact analogy mapping used in the persona narrative for each concept.
+                    Step 3 — For each question:
+                    - Write ONE correct answer that reflects the accurate mapping from Step 2.
+                    - Write ONE distractor that represents the most common way someone misreads THIS
+                      SPECIFIC analogy (a real, plausible misunderstanding — not a random wrong fact).
+                    - Write 1-2 more distractors that are plausible but clearly wrong on technical grounds.
+                    - After the answer, add a one-line explanation of WHY the misread distractor is a
+                      common trap, so the user learns even from getting it wrong.
+                    Step 4 — Self-check internally: confirm no question's "correct" answer actually
+                    reflects a subtly wrong mapping (re-verify against the Deep Technical passage
+                    directly, not the analogy). Do not show this step in your output.
 
-                    Study Text Section:
-                    {selected_text}
+                    Generate 6 to 8 questions total.
+
+                    Output ONLY this format per question, no internal steps shown:
+                    Question: [text]
+                    A) [option] B) [option] C) [option] D) [option]
+                    ✅ Correct Answer: [letter] — [1-line technical justification, quoting the Deep Technical passage's logic, not the analogy]
+                    ⚠️ Common trap: [which distractor people usually pick and why the analogy makes that mistake tempting]
+
+                    Deep Technical passage:
+                    {st.session_state.generated_notes}
+
+                    Persona narrative used:
+                    {st.session_state.generated_summary}
+
+                    Persona name: {st.session_state.generated_mode_label}
                     """
                     st.session_state.generated_cbt = ask_gemini(api_key, prompt, dynamic_mode=False)
-                    st.session_state.current_cbt_batch = batch_selection
+                    st.session_state.current_cbt_batch = st.session_state.generated_mode_label
                     st.session_state.active_view = "quiz"
 
         st.markdown("---")
         st.markdown("""
             <div class="flex-container">
                 <svg class="icon-svg" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v18"/><path d="M3 12h18"/><rect x="3" y="3" width="18" height="18" rx="2"/></svg>
-                <h3 style="margin:0;">Key Acronyms, Definitions & Formulas</h3>
+                <h3 style="margin:0;">Recall Hook Table</h3>
             </div>
         """, unsafe_allow_html=True)
 
-        if st.button("Generate Cheat Sheet Table", key="btn_table"):
+        st.caption("Anchors each term to the specific analogy moment that explained it — built from the analogy currently shown above.")
+
+        if not has_analogy:
+            st.info("Generate a persona analogy above first — the table is built from it.")
+
+        if st.button("Generate Recall Hook Table", key="btn_table", disabled=not has_analogy):
             if not api_key:
                 st.error("Missing API Key!")
-            elif not raw_text.strip():
-                st.error("Could not extract any text from this document.")
             else:
-                with st.spinner("Extracting terms and formulas from the entire document..."):
-                    full_syllabus_context = (
-                        f"[Section 1: Foundations]\n{chunk_1[:3000]}\n\n"
-                        f"[Section 2: Core Details]\n{chunk_2[:3000]}\n\n"
-                        f"[Section 3: Deep Technical]\n{chunk_3[:3000]}\n\n"
-                        f"[Section 4: Advanced/Conclusion]\n{chunk_4[:3000]}"
-                    )
-
+                with st.spinner("Anchoring each term to its analogy hook..."):
                     prompt = f"""
-                    Analyze the following study material and act as a professional summary engine.
-                    Extract every single critical network protocol, acronym, core cybersecurity definition, concept, and formula into a clean, comprehensive summary grid.
-                    You MUST format your entire output as a valid Markdown table with exactly two columns. Output ONLY the table itself.
+                    You are generating a compact recall table that anchors each technical term to
+                    the analogy hook that helped the user understand it — not just a flat definition.
 
-                    | Term / Concept / Acronym | High-Yield Summary & Core Meaning |
-                    | :--- | :--- |
+                    Step 1 — List every key term from the Deep Technical passage with its precise definition.
+                    Step 2 — For each term, pull the exact phrase or moment from the persona narrative
+                    that represents that term (quote or closely paraphrase the specific analogy line —
+                    not a generic restatement).
+                    Step 3 — Self-check internally: confirm the recall hook for each term matches Step
+                    1's definition exactly — if the persona narrative's phrasing has drifted from the
+                    technical meaning, fix the hook to be accurate rather than copying the drifted
+                    version verbatim. Do not show this step in your output.
 
-                    Extract at least 12-18 foundational and advanced elements:
-                    {full_syllabus_context}
+                    Output ONLY a markdown table with these columns (no internal steps shown):
+                    | Term | Definition | Recall Hook ({st.session_state.generated_mode_label}) |
+
+                    Keep each Recall Hook under 20 words — punchy, memorable, not a full re-explanation.
+
+                    Deep Technical passage:
+                    {st.session_state.generated_notes}
+
+                    Persona narrative used:
+                    {st.session_state.generated_summary}
                     """
                     st.session_state.generated_cheatsheet = ask_gemini(api_key, prompt, dynamic_mode=False)
                     st.session_state.active_view = "cheatsheet"
@@ -382,12 +399,12 @@ if uploaded_file:
             )
 
     elif view == "quiz":
-        st.markdown(f"### 🧩 CBT Practice — {st.session_state.current_cbt_batch}")
+        st.markdown(f"### 🧩 Analogy-Aware Quiz — {st.session_state.current_cbt_batch}")
         if st.session_state.generated_cbt:
             st.markdown(st.session_state.generated_cbt, unsafe_allow_html=True)
 
     elif view == "cheatsheet":
-        st.markdown("### 🗂️ Cheat Sheet")
+        st.markdown(f"### 🗂️ Recall Hook Table — {st.session_state.generated_mode_label}")
         if st.session_state.generated_cheatsheet:
             st.markdown(st.session_state.generated_cheatsheet, unsafe_allow_html=True)
 
