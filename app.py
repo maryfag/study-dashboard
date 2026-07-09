@@ -59,6 +59,8 @@ if "generated_notes" not in st.session_state:
     st.session_state.generated_notes = None
 if "generated_mode_label" not in st.session_state:
     st.session_state.generated_mode_label = None
+if "generated_batch_label" not in st.session_state:
+    st.session_state.generated_batch_label = None
 if "generated_cbt" not in st.session_state:
     st.session_state.generated_cbt = None
 if "current_cbt_batch" not in st.session_state:
@@ -185,13 +187,6 @@ if uploaded_file:
     chunk_3 = raw_text[chunk_size*2:chunk_size*3] if total_length > 0 else ""
     chunk_4 = raw_text[chunk_size*3:] if total_length > 0 else ""
 
-    safe_combined_text = (
-        f"[Introductory Section]\n{chunk_1[:3500]}\n\n"
-        f"[Core Section A]\n{chunk_2[:3500]}\n\n"
-        f"[Core Section B]\n{chunk_3[:3500]}\n\n"
-        f"[Advanced / Concluding Section]\n{chunk_4[:3500]}"
-    )
-
     # ============================================================
     # SIDEBAR — every control clustered here, locked open
     # ============================================================
@@ -203,7 +198,26 @@ if uploaded_file:
             </div>
         """, unsafe_allow_html=True)
 
-        st.caption("Pick a persona — Column 2 becomes one continuous narrative built on the document.")
+        st.caption("Choose a section, then a persona — the persona note, quiz, and recall table all stay scoped to this section.")
+
+        batch_selection = st.selectbox(
+            "Study Section:",
+            ["Batch 1: Introduction & Foundation Concepts",
+             "Batch 2: Core Methodologies & Process Details",
+             "Batch 3: Deep Technical Content",
+             "Batch 4: Advanced Scenarios & Conclusions"]
+        )
+
+        if batch_selection.startswith("Batch 1"):
+            section_text = chunk_1[:9000]
+        elif batch_selection.startswith("Batch 2"):
+            section_text = chunk_2[:9000]
+        elif batch_selection.startswith("Batch 3"):
+            section_text = chunk_3[:9000]
+        else:
+            section_text = chunk_4[:9000]
+
+        st.markdown("")
 
         MODE_OPTIONS = {
             "buddy": ("Campus Buddy", "You are a witty, supportive university peer tutor writing a cohesive campus survival guide. Establish a single, continuous story using the chaotic ecosystem of university life (like navigating strict hostel porters, fighting for hostel Wi-Fi bandwidth, or queuing at the campus gate). Every technical concept from the document must become a recurring character or mechanic in this campus saga. Keep the tone conversational, funny, and deeply protective of your friend's grades. Wrap key terms in <strong> tags."),
@@ -225,10 +239,10 @@ Wrap key terms in <strong> tags."""),
             if st.button(label, key=f"mode_{mode_id}"):
                 if not api_key:
                     st.error("Missing API Key!")
-                elif not raw_text.strip():
-                    st.error("Could not extract any text from this document.")
+                elif not section_text.strip():
+                    st.error("This section doesn't contain enough text to extract data.")
                 else:
-                    with st.spinner("Building the dual-stream notes..."):
+                    with st.spinner("Building the dual-stream notes for this section..."):
                         prompt = f"""
                         You are a dual-stream content engine. Generate two perfectly distinct but
                         chronologically mirrored texts that will sit side-by-side.
@@ -255,8 +269,8 @@ Wrap key terms in <strong> tags."""),
                         <<<COLUMN2>>>
                         (Immersive Persona Note text goes here)
 
-                        Document Text:
-                        {safe_combined_text}
+                        Document Text (this is only {batch_selection} — do not reference other sections):
+                        {section_text}
                         """
                         result = ask_gemini(api_key, prompt, dynamic_mode=True)
                         col1_match = re.search(r"<<<COLUMN1>>>(.*?)<<<COLUMN2>>>", result, re.DOTALL) if result else None
@@ -265,6 +279,7 @@ Wrap key terms in <strong> tags."""),
                             st.session_state.generated_notes = col1_match.group(1).strip()
                             st.session_state.generated_summary = col2_match.group(1).strip()
                             st.session_state.generated_mode_label = label
+                            st.session_state.generated_batch_label = batch_selection
                             st.session_state.active_view = "analogy"
                         else:
                             st.error("Couldn't generate the dual-stream notes this time — please try again.")
@@ -326,7 +341,7 @@ Wrap key terms in <strong> tags."""),
                     Persona name: {st.session_state.generated_mode_label}
                     """
                     st.session_state.generated_cbt = ask_gemini(api_key, prompt, dynamic_mode=False)
-                    st.session_state.current_cbt_batch = st.session_state.generated_mode_label
+                    st.session_state.current_cbt_batch = f"{st.session_state.generated_mode_label} — {st.session_state.generated_batch_label}"
                     st.session_state.active_view = "quiz"
 
         st.markdown("---")
@@ -383,7 +398,7 @@ Wrap key terms in <strong> tags."""),
         st.info("Document loaded. Choose an action from the left panel to get started.")
 
     elif view == "analogy":
-        st.markdown(f"### 💡 {st.session_state.generated_mode_label} — Dual-Stream Notes")
+        st.markdown(f"### 💡 {st.session_state.generated_mode_label} — {st.session_state.generated_batch_label}")
         c1, c2 = st.columns(2)
         with c1:
             st.markdown("**📌 Grounded Truth**")
@@ -404,7 +419,7 @@ Wrap key terms in <strong> tags."""),
             st.markdown(st.session_state.generated_cbt, unsafe_allow_html=True)
 
     elif view == "cheatsheet":
-        st.markdown(f"### 🗂️ Recall Hook Table — {st.session_state.generated_mode_label}")
+        st.markdown(f"### 🗂️ Recall Hook Table — {st.session_state.generated_mode_label} — {st.session_state.generated_batch_label}")
         if st.session_state.generated_cheatsheet:
             st.markdown(st.session_state.generated_cheatsheet, unsafe_allow_html=True)
 
