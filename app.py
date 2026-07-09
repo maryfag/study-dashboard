@@ -57,6 +57,8 @@ if "generated_summary" not in st.session_state:
     st.session_state.generated_summary = None
 if "generated_notes" not in st.session_state:
     st.session_state.generated_notes = None
+if "generated_sections" not in st.session_state:
+    st.session_state.generated_sections = None
 if "generated_mode_label" not in st.session_state:
     st.session_state.generated_mode_label = None
 if "generated_batch_label" not in st.session_state:
@@ -239,45 +241,50 @@ Wrap key terms in <strong> tags."""),
                         in the order they appear (e.g. 1, 2, 3...). Use as many numbered sections as the
                         document naturally has distinct concepts — do not force an arbitrary count.
 
-                        COLUMN 1: "Grounded Truth"
-                        - For EACH numbered section, write a highly accurate, structured, literal
-                          academic explanation: definitions, configurations, and core technical rules.
-                        - Prefix each section with its number and a short title, e.g. "1. Sender".
+                        For EACH section, produce a matched pair:
+                        - "literal_note": a highly accurate, structured, literal academic explanation
+                          of THIS section only — definitions, configurations, core technical rules.
+                        - "persona_note": the SAME section re-explained through the chosen Persona below.
+                          Do NOT write an isolated, dry, one-off translation — write it as a piece of
+                          one continuous "Companion Textbook", referencing and building on earlier
+                          sections' analogies where natural, so reading all persona_note fields in
+                          order feels like one flowing story, not disconnected snippets.
 
-                        COLUMN 2: "The Immersive Persona Note"
-                        - Use the EXACT SAME numbering and section titles as Column 1, so the two
-                          columns line up one-to-one and can be read in parallel.
-                        - Within and across those numbered sections, do NOT write isolated, dry,
-                          one-off translations. Instead, treat the whole column as a single continuous
-                          "Companion Textbook" written entirely through the lens of the chosen Persona.
-                          Concepts should flow naturally from one numbered section into the next,
-                          building one cohesive world where earlier analogies are referenced and
-                          expanded upon later — the numbering marks where each concept begins, but the
-                          narrative itself keeps flowing.
-
-                        GLOBAL FORMATTING RULES:
-                        1. Column 1 and Column 2 must use the IDENTICAL numbered sequence and section
-                           titles, so a reader can match "1." on the left with "1." on the right exactly.
-                        2. STIPULATION ON BOLDING: Never use markdown asterisks (like **text**) to bold phrases. Instead, wrap key technical definitions and core takeaways using HTML strong tags (like <strong>text</strong>).
-
-                        PERSONA INSTRUCTION FOR COLUMN 2:
+                        PERSONA INSTRUCTION FOR "persona_note":
                         {persona_vibe}
 
-                        Respond in EXACTLY this format, with no extra commentary before or after:
-                        <<<COLUMN1>>>
-                        (Grounded Truth text goes here, numbered sections)
-                        <<<COLUMN2>>>
-                        (Immersive Persona Note text goes here, SAME numbered sections)
+                        STIPULATION ON BOLDING: Never use markdown asterisks (like **text**) to bold
+                        phrases. Instead, wrap key technical definitions and core takeaways using HTML
+                        strong tags (like <strong>text</strong>).
+
+                        Respond with ONLY a raw JSON array, no markdown fences, no commentary, in this
+                        exact schema:
+                        [
+                          {{
+                            "number": 1,
+                            "title": "short section title, e.g. 'Sender'",
+                            "literal_note": "...",
+                            "persona_note": "..."
+                          }}
+                        ]
 
                         Document Text:
                         {safe_combined_text}
                         """
                         result = ask_gemini(api_key, prompt, dynamic_mode=True)
-                        col1_match = re.search(r"<<<COLUMN1>>>(.*?)<<<COLUMN2>>>", result, re.DOTALL) if result else None
-                        col2_match = re.search(r"<<<COLUMN2>>>(.*)", result, re.DOTALL) if result else None
-                        if col1_match and col2_match:
-                            st.session_state.generated_notes = col1_match.group(1).strip()
-                            st.session_state.generated_summary = col2_match.group(1).strip()
+                        parsed = extract_json_block(result)
+                        if parsed:
+                            st.session_state.generated_sections = parsed
+                            # Rebuild flat text blobs too, so the Quiz and Recall Hook Table
+                            # (which expect one continuous passage) keep working unchanged.
+                            st.session_state.generated_notes = "\n\n".join(
+                                f"{s.get('number', '')}. {s.get('title', '')}\n{s.get('literal_note', '')}"
+                                for s in parsed
+                            )
+                            st.session_state.generated_summary = "\n\n".join(
+                                f"{s.get('number', '')}. {s.get('title', '')}\n{s.get('persona_note', '')}"
+                                for s in parsed
+                            )
                             st.session_state.generated_mode_label = label
                             st.session_state.active_view = "analogy"
                         else:
@@ -422,19 +429,23 @@ Wrap key terms in <strong> tags."""),
 
     elif view == "analogy":
         st.markdown(f"### 💡 {st.session_state.generated_mode_label} — Dual-Stream Notes")
-        c1, c2 = st.columns(2)
-        with c1:
-            st.markdown("**📌 Grounded Truth**")
-            st.markdown(
-                f'<div class="memo-card">{st.session_state.generated_notes or "—"}</div>',
-                unsafe_allow_html=True
-            )
-        with c2:
-            st.markdown("**💡 Immersive Persona Note**")
-            st.markdown(
-                f'<div class="memo-card">{st.session_state.generated_summary or "—"}</div>',
-                unsafe_allow_html=True
-            )
+        sections = st.session_state.generated_sections or []
+
+        for sec in sections:
+            number = sec.get("number", "")
+            title = sec.get("title", "").strip()
+            note = sec.get("literal_note", "").strip()
+            persona_note = sec.get("persona_note", "").strip()
+
+            st.markdown(f"#### {number}. {title}")
+            c1, c2 = st.columns(2)
+            with c1:
+                st.markdown("**📌 Grounded Truth**")
+                st.markdown(f'<div class="memo-card">{note or "—"}</div>', unsafe_allow_html=True)
+            with c2:
+                st.markdown("**💡 Immersive Persona Note**")
+                st.markdown(f'<div class="memo-card">{persona_note or "—"}</div>', unsafe_allow_html=True)
+            st.markdown("")  # spacer between sections
 
     elif view == "quiz":
         st.markdown(f"### 🧩 Analogy-Aware Quiz — {st.session_state.current_cbt_batch}")
