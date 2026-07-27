@@ -78,7 +78,7 @@ if "transcribed_notes" not in st.session_state:
 # --- TITLE WITH PURE LUCIDE BOOKSTACK ---
 st.markdown(f"""
     <div class="flex-container">
-        <svg class="icon-svg" xmlns="[http://www.w3.org/2000/svg](http://www.w3.org/2000/svg)" width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+        <svg class="icon-svg" xmlns="http://www.w3.org/2000/svg" width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
             <path d="m16 6 4 14"/>
             <path d="M12 6v14"/>
             <path d="M8 8v12"/>
@@ -122,7 +122,7 @@ def ask_gemini(api_key, prompt_text, dynamic_mode=False):
     generation_config = {"temperature": 0.85 if dynamic_mode else 0.2}
 
     for model in models:
-        url = f"[https://generativelanguage.googleapis.com/v1beta/models/](https://generativelanguage.googleapis.com/v1beta/models/){model}:generateContent?key={api_key}"
+        url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={api_key}"
         headers = {'Content-Type': 'application/json'}
         payload = {
             "contents": [{"parts": [{"text": prompt_text}]}],
@@ -143,7 +143,7 @@ def ask_gemini(api_key, prompt_text, dynamic_mode=False):
     # --- PURE LUCIDE ALERT BOX ---
     return """
     <div style="display:flex; align-items:center; gap:8px; color:#DC2626; font-weight:600;">
-        <svg xmlns="[http://www.w3.org/2000/svg](http://www.w3.org/2000/svg)" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
         Server lines are busy. Tap the button again!
     </div>
     """
@@ -174,7 +174,7 @@ def transcribe_images(api_key, image_files):
     })
 
     for model in models:
-        url = f"[https://generativelanguage.googleapis.com/v1beta/models/](https://generativelanguage.googleapis.com/v1beta/models/){model}:generateContent?key={api_key}"
+        url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={api_key}"
         headers = {'Content-Type': 'application/json'}
         payload = {
             "contents": [{"parts": parts}],
@@ -195,12 +195,12 @@ def transcribe_images(api_key, image_files):
     return None
 
 
-def extract_json_block(text):
+
     """Only used for the paired notes/analogy feature, since that one needs
     structured per-item output to render as aligned rows."""
     if not text:
         return None
-    cleaned = re.sub(r"\x60{3}json|\x60{3}", "", text).strip()
+    cleaned = re.sub(r"```json|```", "", text).strip()
     match = re.search(r"(\[.*\]|\{.*\})", cleaned, re.DOTALL)
     if not match:
         return None
@@ -274,7 +274,7 @@ if has_content:
     with st.sidebar:
         st.markdown("""
             <div class="flex-container">
-                <svg class="icon-svg" xmlns="[http://www.w3.org/2000/svg](http://www.w3.org/2000/svg)" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>
+                <svg class="icon-svg" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>
                 <h3 style="margin:0;">Tailored Multi-Mode Explanation Engine</h3>
             </div>
         """, unsafe_allow_html=True)
@@ -372,7 +372,7 @@ Wrap key terms in <strong> tags."""),
         st.markdown("---")
         st.markdown("""
             <div class="flex-container">
-                <svg class="icon-svg" xmlns="[http://www.w3.org/2000/svg](http://www.w3.org/2000/svg)" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5a3 3 0 1 0-5.997.125 4 4 0 0 0-2.526 5.77 4 4 0 0 0 .556 6.588A4 4 0 1 0 12 18Z"/><path d="M12 5a3 3 0 1 1 5.997.125 4 4 0 0 1 2.526 5.77 4 4 0 0 1-.556 6.588A4 4 0 1 1 12 18Z"/><path d="M12 5v14"/><path d="M12 12h6"/><path d="M12 12H6"/><path d="M12 7h5"/><path d="M12 16h5"/><path d="M12 7H7"/><path d="M12 16H7"/></svg>
+                <svg class="icon-svg" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5a3 3 0 1 0-5.997.125 4 4 0 0 0-2.526 5.77 4 4 0 0 0 .556 6.588A4 4 0 1 0 12 18Z"/><path d="M12 5a3 3 0 1 1 5.997.125 4 4 0 0 1 2.526 5.77 4 4 0 0 1-.556 6.588A4 4 0 1 1 12 18Z"/><path d="M12 5v14"/><path d="M12 12h6"/><path d="M12 12H6"/><path d="M12 7h5"/><path d="M12 16h5"/><path d="M12 7H7"/><path d="M12 16H7"/></svg>
                 <h3 style="margin:0;">Theory-to-CBT Objective Drill</h3>
             </div>
         """, unsafe_allow_html=True)
@@ -456,7 +456,7 @@ Wrap key terms in <strong> tags."""),
         st.markdown("---")
         st.markdown("""
             <div class="flex-container">
-                <svg class="icon-svg" xmlns="[http://www.w3.org/2000/svg](http://www.w3.org/2000/svg)" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v18"/><path d="M3 12h18"/><rect x="3" y="3" width="18" height="18" rx="2"/></svg>
+                <svg class="icon-svg" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v18"/><path d="M3 12h18"/><rect x="3" y="3" width="18" height="18" rx="2"/></svg>
                 <h3 style="margin:0;">Recall Hook Table</h3>
             </div>
         """, unsafe_allow_html=True)
