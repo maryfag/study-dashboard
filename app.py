@@ -6,6 +6,7 @@ import requests
 import random
 import json
 import re
+import base64
 
 APP_NAME = "DocDigest"
 
@@ -71,6 +72,8 @@ if "generated_cheatsheet" not in st.session_state:
     st.session_state.generated_cheatsheet = None
 if "active_view" not in st.session_state:
     st.session_state.active_view = None  # "analogy" | "quiz" | "cheatsheet"
+if "transcribed_notes" not in st.session_state:
+    st.session_state.transcribed_notes = None
 
 # --- TITLE WITH PURE LUCIDE BOOKSTACK ---
 st.markdown(f"""
@@ -146,7 +149,53 @@ def ask_gemini(api_key, prompt_text, dynamic_mode=False):
     """
 
 
-def extract_json_block(text):
+def transcribe_images(api_key, image_files):
+    """Sends photos directly to Gemini's multimodal endpoint and asks it to
+    transcribe the handwritten/printed content into plain text, in the order
+    given. This deliberately skips OCR libraries like Tesseract — Gemini's
+    vision understanding handles messy handwriting far better."""
+    models = ["gemini-2.5-flash", "gemini-1.5-flash"]
+
+    parts = []
+    for img_file in image_files:
+        img_bytes = img_file.getvalue()
+        mime_type = img_file.type or "image/jpeg"
+        encoded = base64.b64encode(img_bytes).decode("utf-8")
+        parts.append({"inline_data": {"mime_type": mime_type, "data": encoded}})
+
+    parts.append({
+        "text": (
+            "Transcribe the handwritten and/or printed content of these images "
+            "verbatim into plain text, in the exact order the images were given "
+            "(treat them as consecutive pages). Preserve structure where visible "
+            "(headings, bullet points, numbered lists). Do not summarize, "
+            "correct, or add commentary — output ONLY the transcribed text."
+        )
+    })
+
+    for model in models:
+        url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={api_key}"
+        headers = {'Content-Type': 'application/json'}
+        payload = {
+            "contents": [{"parts": parts}],
+            "generationConfig": {"temperature": 0.1}
+        }
+        try:
+            response = requests.post(url, headers=headers, json=payload)
+            response_json = response.json()
+            if 'candidates' in response_json and response_json['candidates']:
+                return response_json['candidates'][0]['content']['parts'][0]['text']
+            elif 'error' in response_json:
+                error_msg = response_json['error']['message']
+                if "demand" in error_msg.lower() or "quota" in error_msg.lower() or "not found" in error_msg.lower():
+                    continue
+                return None
+        except Exception:
+            continue
+    return None
+
+
+
     """Only used for the paired notes/analogy feature, since that one needs
     structured per-item output to render as aligned rows."""
     if not text:
@@ -179,8 +228,38 @@ api_key = random.choice(api_keys) if api_keys else None
 # --- FILE UPLOAD STAYS IN THE MAIN AREA ---
 uploaded_file = st.file_uploader("Drop your study document here (PDF, DOCX, PPTX, PPTM)", type=["pdf", "docx", "pptx", "pptm"])
 
-if uploaded_file:
-    raw_text = extract_text(uploaded_file)
+st.markdown("**— or —**")
+
+uploaded_images = st.file_uploader(
+    "Upload photos of handwritten notes (multiple pages, in page order)",
+    type=["png", "jpg", "jpeg"],
+    accept_multiple_files=True
+)
+if uploaded_images:
+    st.caption(f"{len(uploaded_images)} photo(s) selected. Larger batches take a bit longer and use more of your API quota.")
+    if st.button("Transcribe These Photos"):
+        if not api_key:
+            st.error("Missing API Key!")
+        else:
+            with st.spinner("Reading your handwritten pages..."):
+                result = transcribe_images(api_key, uploaded_images)
+                if result:
+                    st.session_state.transcribed_notes = result
+                else:
+                    st.error("Couldn't transcribe these photos — please try again.")
+
+has_content = bool(uploaded_file or st.session_state.transcribed_notes)
+
+if has_content:
+    if uploaded_file:
+        raw_text = extract_text(uploaded_file)
+        source_label = uploaded_file.name
+    else:
+        raw_text = st.session_state.transcribed_notes
+        source_label = "Transcribed photos"
+
+    st.caption(f"📄 Active source: {source_label}")
+
     total_length = len(raw_text) if raw_text else 0
     chunk_size = max(1, total_length // 4)
 
