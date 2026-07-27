@@ -195,8 +195,7 @@ def transcribe_images(api_key, image_files):
 
 
 def extract_json_block(text):
-    """Only used for the paired notes/analogy feature, since that one needs
-    structured per-item output to render as aligned rows."""
+    """Parses JSON from Gemini output cleanly without string syntax bugs."""
     if not text:
         return None
-    cleaned = re.sub(r"```json|
+    cleaned = text.replace("```json", "").replace("
