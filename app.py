@@ -198,4 +198,4 @@ def extract_json_block(text):
     """Parses JSON from Gemini output cleanly without string syntax bugs."""
     if not text:
         return None
-    cleaned = text.replace("```json", "").replace("
+    cleaned = text.replace("```json", "").replace("```", "").strip()
