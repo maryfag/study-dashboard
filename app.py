@@ -368,6 +368,8 @@ Wrap key terms in <strong> tags."""),
                             st.session_state.active_view = "analogy"
                         else:
                             st.error("Couldn't generate the dual-stream notes this time — please try again.")
+                            with st.expander("See raw response (for debugging)"):
+                                st.code(result or "(no response — API call itself failed)")
 
         st.markdown("---")
         st.markdown("""
