@@ -323,14 +323,29 @@ Wrap key terms in <strong> tags."""),
                         For EACH section, produce a matched pair:
                         - "literal_note": a highly accurate, structured, literal academic explanation
                           of THIS section only — definitions, configurations, core technical rules.
+                          IF this section involves a calculation, formula, or worked problem (math,
+                          accounting, physics, or similar quantitative subject), actually SOLVE it
+                          step-by-step here, showing every step of the method, not just naming the
+                          technique. If you solve a problem the source document did not already answer,
+                          prefix that solution with exactly this flag on its own line first:
+                          "⚠️ AI-generated solution — double-check key steps, especially on complex problems."
                         - "persona_note": the SAME section re-explained through the chosen Persona below.
                           Do NOT write an isolated, dry, one-off translation — write it as a piece of
                           one continuous "Companion Textbook", referencing and building on earlier
                           sections' analogies where natural, so reading all persona_note fields in
-                          order feels like one flowing story, not disconnected snippets.
+                          order feels like one flowing story, not disconnected snippets. For quantitative
+                          sections, do not just relabel terms with cute names — use the metaphor to
+                          build genuine intuition for WHY each real step in literal_note's solution
+                          works, referencing the same steps, not replacing them.
+                        - "is_quantitative": true or false — whether this section involved a real
+                          calculation/worked solution.
 
                         PERSONA INSTRUCTION FOR "persona_note":
                         {persona_vibe}
+
+                        MATH NOTATION: write all mathematical expressions using LaTeX syntax wrapped
+                        in single dollar signs, e.g. $x^2 + y^2 = 4$ or $\\frac{{dy}}{{dx}}$ — never
+                        plain-text approximations like x^2 or dy/dx written out unformatted.
 
                         STIPULATION ON BOLDING: Never use markdown asterisks (like **text**) to bold
                         phrases. Instead, wrap key technical definitions and core takeaways using HTML
@@ -343,7 +358,8 @@ Wrap key terms in <strong> tags."""),
                             "number": 1,
                             "title": "short section title, e.g. 'Sender'",
                             "literal_note": "...",
-                            "persona_note": "..."
+                            "persona_note": "...",
+                            "is_quantitative": false
                           }}
                         ]
 
@@ -423,16 +439,28 @@ Wrap key terms in <strong> tags."""),
 
                     Step 1 — Identify the core technical concept(s) covered in the Section To Quiz.
                     Step 2 — Identify the exact analogy mapping used in the Persona Narrative for each concept.
-                    Step 3 — For each question:
-                    - Write ONE correct answer that reflects the accurate mapping from Step 2.
-                    - Write ONE distractor that represents the most common way someone misreads THIS
-                      SPECIFIC analogy (a real, plausible misunderstanding — not a random wrong fact).
-                    - Write 1-2 more distractors that are plausible but clearly wrong on technical grounds.
-                    - After the answer, add a one-line explanation of WHY the misread distractor is a
-                      common trap, so the user learns even from getting it wrong.
+                    Step 3 — For each question, first decide: is this concept quantitative/procedural
+                    (a calculation, formula, or worked method — math, accounting, physics, etc.) or
+                    conceptual (a definition, rule, or system)?
+                    - If CONCEPTUAL: write ONE correct answer reflecting the accurate mapping from
+                      Step 2, ONE distractor representing the most common way someone misreads THIS
+                      SPECIFIC analogy (a real, plausible misunderstanding, not a random wrong fact),
+                      and 1-2 more distractors that are plausible but clearly wrong on technical grounds.
+                    - If QUANTITATIVE: write a real calculation problem (not just a definition
+                      question). The correct answer must be the actually correct result of applying the
+                      right method. Distractors must represent GENUINE calculation mistakes a student
+                      could plausibly make (e.g. forgot to apply the chain rule, sign error, dropped a
+                      constant, applied the wrong rule entirely) — not analogy confusion.
+                    - After the answer, add a one-line explanation of WHY the wrong distractor is a
+                      common trap, so the user learns even from getting it wrong. This explanation MUST
+                      state the actual specific reasoning (the real rule, the real mistake, the real
+                      mapping) — never vague filler like "the text explains this" or "as covered above."
                     Step 4 — Self-check internally: confirm no question's "correct" answer actually
-                    reflects a subtly wrong mapping (re-verify against the Grounded Truth directly, not
-                    the analogy). Do not show this step in your output.
+                    reflects a subtly wrong mapping or a calculation error (re-verify against the
+                    Grounded Truth directly). Do not show this step in your output.
+
+                    MATH NOTATION: write all mathematical expressions using LaTeX syntax wrapped in
+                    single dollar signs, e.g. $x^2 + y^2 = 4$ — never unformatted plain-text math.
 
                     Generate 6 to 8 questions total.
 
