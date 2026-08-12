@@ -119,7 +119,11 @@ def extract_text(uploaded_file):
 
 def ask_gemini(api_key, prompt_text, dynamic_mode=False):
     models = ["gemini-2.5-flash", "gemini-1.5-flash"]
-    generation_config = {"temperature": 0.85 if dynamic_mode else 0.2}
+    generation_config = {
+        "temperature": 0.85 if dynamic_mode else 0.2,
+        "maxOutputTokens": 65536,
+    }
+    last_error = None
 
     for model in models:
         url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={api_key}"
@@ -132,21 +136,22 @@ def ask_gemini(api_key, prompt_text, dynamic_mode=False):
             response = requests.post(url, headers=headers, json=payload)
             response_json = response.json()
             if 'candidates' in response_json and response_json['candidates']:
-                return response_json['candidates'][0]['content']['parts'][0]['text']
+                candidate = response_json['candidates'][0]
+                finish_reason = candidate.get('finishReason')
+                parts = candidate.get('content', {}).get('parts', [])
+                text = parts[0]['text'] if parts and 'text' in parts[0] else None
+                return {"text": text, "finish_reason": finish_reason, "error": None}
             elif 'error' in response_json:
                 error_msg = response_json['error']['message']
                 if "demand" in error_msg.lower() or "quota" in error_msg.lower() or "not found" in error_msg.lower():
+                    last_error = error_msg
                     continue
-                return f"Google API Error: {error_msg}"
-        except: continue
+                return {"text": None, "finish_reason": None, "error": error_msg}
+        except Exception as e:
+            last_error = str(e)
+            continue
 
-    # --- PURE LUCIDE ALERT BOX ---
-    return """
-    <div style="display:flex; align-items:center; gap:8px; color:#DC2626; font-weight:600;">
-        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
-        Server lines are busy. Tap the button again!
-    </div>
-    """
+    return {"text": None, "finish_reason": None, "error": last_error or "All models failed to respond."}
 
 
 def transcribe_images(api_key, image_files):
@@ -173,26 +178,51 @@ def transcribe_images(api_key, image_files):
         )
     })
 
+    last_error = None
+
     for model in models:
         url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={api_key}"
         headers = {'Content-Type': 'application/json'}
         payload = {
             "contents": [{"parts": parts}],
-            "generationConfig": {"temperature": 0.1}
+            "generationConfig": {"temperature": 0.1, "maxOutputTokens": 65536}
         }
         try:
             response = requests.post(url, headers=headers, json=payload)
             response_json = response.json()
             if 'candidates' in response_json and response_json['candidates']:
-                return response_json['candidates'][0]['content']['parts'][0]['text']
+                candidate = response_json['candidates'][0]
+                finish_reason = candidate.get('finishReason')
+                parts_out = candidate.get('content', {}).get('parts', [])
+                text = parts_out[0]['text'] if parts_out and 'text' in parts_out[0] else None
+                return {"text": text, "finish_reason": finish_reason, "error": None}
             elif 'error' in response_json:
                 error_msg = response_json['error']['message']
                 if "demand" in error_msg.lower() or "quota" in error_msg.lower() or "not found" in error_msg.lower():
+                    last_error = error_msg
                     continue
-                return None
-        except Exception:
+                return {"text": None, "finish_reason": None, "error": error_msg}
+        except Exception as e:
+            last_error = str(e)
             continue
-    return None
+
+    return {"text": None, "finish_reason": None, "error": last_error or "All models failed to respond."}
+
+
+def gemini_error_message(result, context="generate this"):
+    """Turns a raw ask_gemini()/transcribe_images() result into a clear,
+    specific message — distinguishing a genuine API failure from a response
+    that simply got cut off for being too long, instead of one generic
+    'please try again' for every possible cause."""
+    if result.get("error"):
+        return result["error"]
+    if result.get("finish_reason") == "MAX_TOKENS":
+        return (
+            f"Couldn't {context} — the response was too long and got cut off "
+            f"before finishing. Try a shorter document, a smaller batch, or "
+            f"fewer pages at once."
+        )
+    return f"Couldn't {context} this time — please try again."
 
 
 def extract_json_block(text):
@@ -243,10 +273,10 @@ if uploaded_images:
         else:
             with st.spinner("Reading your handwritten pages..."):
                 result = transcribe_images(api_key, uploaded_images)
-                if result:
-                    st.session_state.transcribed_notes = result
+                if result.get("text"):
+                    st.session_state.transcribed_notes = result["text"]
                 else:
-                    st.error("Couldn't transcribe these photos — please try again.")
+                    st.error(gemini_error_message(result, "transcribe these photos"))
 
 has_content = bool(uploaded_file or st.session_state.transcribed_notes)
 
@@ -318,7 +348,17 @@ Wrap key terms in <strong> tags."""),
 
                         FIRST, break the document down into a numbered sequence of concepts/sections
                         in the order they appear (e.g. 1, 2, 3...). Use as many numbered sections as the
-                        document naturally has distinct concepts — do not force an arbitrary count.
+                        document naturally has distinct concepts — do not force an arbitrary count,
+                        even if that means a large number of sections for a document with many
+                        separate problems or topics.
+
+                        CONTINUITY RULE (applies no matter how many sections there are, even 50+):
+                        Maintain ONE single, continuous metaphor-world across ALL sections in this
+                        response. Do not invent a fresh, unrelated metaphor for each new section —
+                        reuse and build on the SAME characters, setting, and objects established
+                        earlier, referencing them again in later sections. If the document has many
+                        separate problems, treat them as chapters in one ongoing story, not
+                        standalone captions.
 
                         For EACH section, produce a matched pair:
                         - "literal_note": a highly accurate, structured, literal academic explanation
@@ -329,6 +369,9 @@ Wrap key terms in <strong> tags."""),
                           technique. If you solve a problem the source document did not already answer,
                           prefix that solution with exactly this flag on its own line first:
                           "⚠️ AI-generated solution — double-check key steps, especially on complex problems."
+                          Do all self-checking, verification, or recalculation INTERNALLY before writing
+                          — never show alternate attempts, corrections, or reasoning about avoiding
+                          errors in the visible output. Output ONLY the final, clean, correct solution.
                         - "persona_note": the SAME section re-explained through the chosen Persona below.
                           Do NOT write an isolated, dry, one-off translation — write it as a piece of
                           one continuous "Companion Textbook", referencing and building on earlier
@@ -367,7 +410,7 @@ Wrap key terms in <strong> tags."""),
                         {safe_combined_text}
                         """
                         result = ask_gemini(api_key, prompt, dynamic_mode=True)
-                        parsed = extract_json_block(result)
+                        parsed = extract_json_block(result.get("text")) if result.get("text") else None
                         if parsed:
                             st.session_state.generated_sections = parsed
                             # Rebuild flat text blobs too, so the Quiz and Recall Hook Table
@@ -383,9 +426,10 @@ Wrap key terms in <strong> tags."""),
                             st.session_state.generated_mode_label = label
                             st.session_state.active_view = "analogy"
                         else:
-                            st.error("Couldn't generate the dual-stream notes this time — please try again.")
+                            error_msg = gemini_error_message(result, "generate the dual-stream notes")
+                            st.error(error_msg)
                             with st.expander("See raw response (for debugging)"):
-                                st.code(result or "(no response — API call itself failed)")
+                                st.code(result.get("text") or "(no response — API call itself failed)")
 
         st.markdown("---")
         st.markdown("""
@@ -479,9 +523,13 @@ Wrap key terms in <strong> tags."""),
                     Full Persona Narrative used ({st.session_state.generated_mode_label}, reference only):
                     {st.session_state.generated_summary}
                     """
-                    st.session_state.generated_cbt = ask_gemini(api_key, prompt, dynamic_mode=False)
-                    st.session_state.current_cbt_batch = f"{st.session_state.generated_mode_label} — {quiz_batch}"
-                    st.session_state.active_view = "quiz"
+                    result = ask_gemini(api_key, prompt, dynamic_mode=False)
+                    if result.get("text"):
+                        st.session_state.generated_cbt = result["text"]
+                        st.session_state.current_cbt_batch = f"{st.session_state.generated_mode_label} — {quiz_batch}"
+                        st.session_state.active_view = "quiz"
+                    else:
+                        st.error(gemini_error_message(result, "generate the quiz"))
 
         st.markdown("---")
         st.markdown("""
@@ -525,8 +573,12 @@ Wrap key terms in <strong> tags."""),
                     Persona narrative used:
                     {st.session_state.generated_summary}
                     """
-                    st.session_state.generated_cheatsheet = ask_gemini(api_key, prompt, dynamic_mode=False)
-                    st.session_state.active_view = "cheatsheet"
+                    result = ask_gemini(api_key, prompt, dynamic_mode=False)
+                    if result.get("text"):
+                        st.session_state.generated_cheatsheet = result["text"]
+                        st.session_state.active_view = "cheatsheet"
+                    else:
+                        st.error(gemini_error_message(result, "generate the recall table"))
 
     # ============================================================
     # MAIN AREA — presentation of whichever result is active
