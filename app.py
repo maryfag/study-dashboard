@@ -234,8 +234,18 @@ def extract_json_block(text):
     match = re.search(r"(\[.*\]|\{.*\})", cleaned, re.DOTALL)
     if not match:
         return None
+    candidate = match.group(1)
     try:
-        return json.loads(match.group(1))
+        return json.loads(candidate)
+    except Exception:
+        pass
+    # Common failure mode: the model wrote single-backslash LaTeX (\frac,
+    # \sin, \int, etc.) inside a JSON string, which breaks JSON's own
+    # escaping rules. Repair by doubling any backslash that isn't already
+    # part of a valid JSON escape sequence, then retry once.
+    repaired = re.sub(r'\\(?!["\\/bfnrtu])', r'\\\\', candidate)
+    try:
+        return json.loads(repaired)
     except Exception:
         return None
 
@@ -387,8 +397,12 @@ Wrap key terms in <strong> tags."""),
                         {persona_vibe}
 
                         MATH NOTATION: write all mathematical expressions using LaTeX syntax wrapped
-                        in single dollar signs, e.g. $x^2 + y^2 = 4$ or $\\frac{{dy}}{{dx}}$ — never
-                        plain-text approximations like x^2 or dy/dx written out unformatted.
+                        in single dollar signs, e.g. $x^2 + y^2 = 4$. Since this LaTeX is embedded
+                        inside JSON string values, every backslash in a LaTeX command MUST be
+                        double-escaped so the JSON stays valid — write \\\\frac, \\\\sin, \\\\int,
+                        \\\\sqrt, \\\\left, \\\\right (two backslashes) instead of \\frac, \\sin,
+                        \\int (one backslash). This is a strict JSON validity requirement, not a
+                        style choice — a single backslash before a letter will break JSON parsing.
 
                         STIPULATION ON BOLDING: Never use markdown asterisks (like **text**) to bold
                         phrases. Instead, wrap key technical definitions and core takeaways using HTML
@@ -504,7 +518,11 @@ Wrap key terms in <strong> tags."""),
                     Grounded Truth directly). Do not show this step in your output.
 
                     MATH NOTATION: write all mathematical expressions using LaTeX syntax wrapped in
-                    single dollar signs, e.g. $x^2 + y^2 = 4$ — never unformatted plain-text math.
+                    single dollar signs, e.g. $x^2 + y^2 = 4$. Since this is embedded inside JSON
+                    string values, every backslash in a LaTeX command MUST be double-escaped so the
+                    JSON stays valid — write \\\\frac, \\\\sin, \\\\int, \\\\sqrt (two backslashes)
+                    instead of \\frac, \\sin, \\int (one backslash). A single backslash before a
+                    letter will break JSON parsing.
 
                     Generate 6 to 8 questions total.
 
