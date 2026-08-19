@@ -53,6 +53,36 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
+# --- KATEX: renders $...$ math inside our custom HTML cards. Streamlit's
+# built-in math support only scans plain markdown text, not raw HTML we
+# inject via unsafe_allow_html=True — so we bring in KaTeX ourselves and
+# watch the page for new content (since Streamlit swaps content in without
+# a full reload every time you click something).
+st.markdown("""
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+<script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"></script>
+<script>
+function renderAllMath() {
+    if (window.renderMathInElement) {
+        renderMathInElement(document.body, {
+            delimiters: [
+                {left: "$$", right: "$$", display: true},
+                {left: "$", right: "$", display: false}
+            ],
+            throwOnError: false
+        });
+    }
+}
+if (!window.__katexObserverInstalled) {
+    window.__katexObserverInstalled = true;
+    const observer = new MutationObserver(function() { renderAllMath(); });
+    observer.observe(document.body, {childList: true, subtree: true});
+}
+renderAllMath();
+</script>
+""", unsafe_allow_html=True)
+
 # --- STATE MEMORY CORES: Keeps sections from wiping out ---
 if "generated_summary" not in st.session_state:
     st.session_state.generated_summary = None
