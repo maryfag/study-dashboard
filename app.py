@@ -148,7 +148,7 @@ def extract_text(uploaded_file):
 
 
 def ask_gemini(api_key, prompt_text, dynamic_mode=False):
-    models = ["gemini-2.5-flash", "gemini-1.5-flash"]
+    models = ["gemini-3.6-flash", "gemini-2.5-flash", "gemini-3.5-flash-lite"]
     generation_config = {
         "temperature": 0.85 if dynamic_mode else 0.2,
         "maxOutputTokens": 65536,
@@ -189,7 +189,7 @@ def transcribe_images(api_key, image_files):
     transcribe the handwritten/printed content into plain text, in the order
     given. This deliberately skips OCR libraries like Tesseract — Gemini's
     vision understanding handles messy handwriting far better."""
-    models = ["gemini-2.5-flash", "gemini-1.5-flash"]
+    models = ["gemini-3.6-flash", "gemini-2.5-flash", "gemini-3.5-flash-lite"]
 
     parts = []
     for img_file in image_files:
