@@ -391,6 +391,56 @@ Wrap key terms in <strong> tags."""),
                     st.error("Could not extract any text from this document.")
                 else:
                     with st.spinner("Building the dual-stream notes..."):
+                        if mode_id == "analyst":
+                            continuity_instruction = (
+                                "SCENARIO SELECTION RULE: For each section, pick whichever "
+                                "real-world quantitative scenario best fits that specific problem, "
+                                "per the Persona Instruction below — you are not required to "
+                                "maintain one fictional world throughout, but DO reuse the same "
+                                "real-world scenario across consecutive sections when they are "
+                                "naturally the same type of problem, rather than switching "
+                                "arbitrarily."
+                            )
+                            persona_note_instruction = (
+                                "for THE ANALYST specifically: a FULL, independent step-by-step "
+                                "worked solution — do NOT write a conceptual summary or vague gloss "
+                                "of the method. Every real mathematical/procedural step present in "
+                                "literal_note (each equation, each substitution, each computed "
+                                "value) must appear here too, in the same order, using the SAME "
+                                "real numbers and the same final answer — nothing skipped, nothing "
+                                "hand-waved. The difference from literal_note is framing, not "
+                                "rigor: narrate each step within the real-world scenario chosen for "
+                                "this section (e.g. an actual line in a financial model, an actual "
+                                "play in a game, an actual line item in a budget), so a reader "
+                                "could follow along and verify every number, while also "
+                                "understanding why it matters in that real context. If the source "
+                                "document did not already answer this problem, prefix your "
+                                "solution with the same AI-generated-solution warning flag as "
+                                "literal_note."
+                            )
+                        else:
+                            continuity_instruction = (
+                                "CONTINUITY RULE (applies no matter how many sections there are, "
+                                "even 50+): Maintain ONE single, continuous metaphor-world across "
+                                "ALL sections in this response. Do not invent a fresh, unrelated "
+                                "metaphor for each new section — reuse and build on the SAME "
+                                "characters, setting, and objects established earlier, referencing "
+                                "them again in later sections. If the document has many separate "
+                                "problems, treat them as chapters in one ongoing story, not "
+                                "standalone captions."
+                            )
+                            persona_note_instruction = (
+                                "the SAME section re-explained through the chosen Persona below. "
+                                "Do NOT write an isolated, dry, one-off translation — write it as a "
+                                "piece of one continuous \"Companion Textbook\", referencing and "
+                                "building on earlier sections' analogies where natural, so reading "
+                                "all persona_note fields in order feels like one flowing story, not "
+                                "disconnected snippets. For quantitative sections, do not just "
+                                "relabel terms with cute names — use the metaphor to build genuine "
+                                "intuition for WHY each real step in literal_note's solution works, "
+                                "referencing the same steps, not replacing them."
+                            )
+
                         prompt = f"""
                         You are a dual-stream content engine. Generate two perfectly distinct but
                         structurally mirrored texts that will sit side-by-side.
@@ -401,7 +451,7 @@ Wrap key terms in <strong> tags."""),
                         even if that means a large number of sections for a document with many
                         separate problems or topics.
 
-                        {"CONTINUITY RULE (applies no matter how many sections there are, even 50+): Maintain ONE single, continuous metaphor-world across ALL sections in this response. Do not invent a fresh, unrelated metaphor for each new section — reuse and build on the SAME characters, setting, and objects established earlier, referencing them again in later sections. If the document has many separate problems, treat them as chapters in one ongoing story, not standalone captions." if mode_id != "analyst" else "SCENARIO SELECTION RULE: For each section, pick whichever real-world quantitative scenario best fits that specific problem, per the Persona Instruction below — you are not required to maintain one fictional world throughout, but DO reuse the same real-world scenario across consecutive sections when they are naturally the same type of problem, rather than switching arbitrarily."}
+                        {continuity_instruction}
 
                         For EACH section, produce a matched pair:
                         - "literal_note": a highly accurate, structured, literal academic explanation
@@ -415,14 +465,7 @@ Wrap key terms in <strong> tags."""),
                           Do all self-checking, verification, or recalculation INTERNALLY before writing
                           — never show alternate attempts, corrections, or reasoning about avoiding
                           errors in the visible output. Output ONLY the final, clean, correct solution.
-                        - "persona_note": the SAME section re-explained through the chosen Persona below.
-                          Do NOT write an isolated, dry, one-off translation — write it as a piece of
-                          one continuous "Companion Textbook", referencing and building on earlier
-                          sections' analogies where natural, so reading all persona_note fields in
-                          order feels like one flowing story, not disconnected snippets. For quantitative
-                          sections, do not just relabel terms with cute names — use the metaphor to
-                          build genuine intuition for WHY each real step in literal_note's solution
-                          works, referencing the same steps, not replacing them.
+                        - "persona_note": {persona_note_instruction}
                         - "is_quantitative": true or false — whether this section involved a real
                           calculation/worked solution.
 
